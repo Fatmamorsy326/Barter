@@ -1,45 +1,53 @@
-abstract class Validation {
-static String? emailValidation(String? email){
-  final RegExp regex = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
-  if(email==null || email.trim().isEmpty){
-    return "Email is required";
+class Validation {
+  static String? nameValidation(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Name is required';
+    }
+    if (value.trim().length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    return null;
   }
-  else if(!regex.hasMatch(email)){
-    return "Email not valid";
+
+  static String? emailValidation(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Email is required';
+    }
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Please enter a valid email';
+    }
+    return null;
   }
-  return null;
-}
-static String? passwordValidation(String? password){
-  final RegExp regex = RegExp(
-    r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#\$&*~]).{8,}$',
-  );
-  if(password==null || password.trim().isEmpty){
-    return "password is required";
+
+  static String? passwordValidation(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
   }
-  else if(password.trim().length<8){
-    return "password should be at least 8";
+
+  static String? rePasswordValidation(String? rePassword, String? password) {
+    if (rePassword == null || rePassword.isEmpty) {
+      return 'Please confirm your password';
+    }
+    if (rePassword != password) {
+      return 'Passwords do not match';
+    }
+    return null;
   }
-  else if(!regex.hasMatch(password)){
-    return "The password must contain an uppercase letter,a lowercase letter and a number";
+
+  static String? phoneValidation(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // Optional field
+    }
+    final phoneRegex = RegExp(r'^[0-9]{10,15}$');
+    if (!phoneRegex.hasMatch(value.replaceAll(RegExp(r'[\s\-\(\)]'), ''))) {
+      return 'Please enter a valid phone number';
+    }
+    return null;
   }
-  return null;
-}
-static String? nameValidation(String? name){
-  if(name==null || name.trim().isEmpty){
-    return "password is required";
-  }
-  else if(name.trim().length<3){
-    return "name should be at least 3 char";
-  }
-  return null;
-}
-static String? rePasswordValidation(String? rePassword ,String? password){
-  if(rePassword==null || rePassword.trim().isEmpty){
-    return "Re-password is required";
-  }
-  else if(rePassword != password){
-    return "password does not match";
-  }
-  return null;
-}
 }
