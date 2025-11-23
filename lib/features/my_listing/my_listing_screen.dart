@@ -24,6 +24,7 @@ class MyListingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(AppLocalizations.of(context)!.my_listing),
       ),
       body: StreamBuilder<List<ItemModel>>(

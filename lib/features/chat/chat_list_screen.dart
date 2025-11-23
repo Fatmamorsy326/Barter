@@ -15,6 +15,7 @@ class ChatListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(AppLocalizations.of(context)!.chat),
       ),
       body: StreamBuilder<List<ChatModel>>(

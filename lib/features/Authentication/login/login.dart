@@ -1,3 +1,7 @@
+// ============================================
+// FILE: lib/features/Authentication/login/login.dart
+// ============================================
+
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/resources/images_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
@@ -21,142 +25,188 @@ class Login extends StatefulWidget {
 }
 
 class _LoginState extends State<Login> {
-  bool  isSecurePassword=true;
-  GlobalKey<FormState> loginFormKey =GlobalKey<FormState>();
+  bool isSecurePassword = true;
+  GlobalKey<FormState> loginFormKey = GlobalKey<FormState>();
   late TextEditingController emailController;
   late TextEditingController passwordController;
 
-  void togglePasswordVisibility(){
-    isSecurePassword=!isSecurePassword;
+  void togglePasswordVisibility() {
     setState(() {
-
+      isSecurePassword = !isSecurePassword;
     });
   }
+
   @override
   void initState() {
-    emailController=TextEditingController();
-    passwordController=TextEditingController();
+    emailController = TextEditingController();
+    passwordController = TextEditingController();
     super.initState();
   }
+
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
-    return   Scaffold(
+    return Scaffold(
       resizeToAvoidBottomInset: false,
       body: SingleChildScrollView(
-        padding:REdgeInsets.only(left: 16,right: 16, bottom: MediaQuery.of(context).viewInsets.bottom,top: 47.h) ,
+        padding: REdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          top: 47.h,
+        ),
         child: Form(
           key: loginFormKey,
           child: Column(
             children: [
-              Image.asset(ImagesManager.barter,height: 180.h,),
-              Text(AppLocalizations.of(context)!.exchange_and_discover_easily,textAlign: TextAlign.center,style: GoogleFonts.inter(
-                  fontWeight:FontWeight.w500 ,
-                  fontSize:20.sp ,
+              Image.asset(ImagesManager.barter, height: 180.h),
+              Text(
+                AppLocalizations.of(context)!.exchange_and_discover_easily,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 20.sp,
                   color: ColorsManager.grey,
-              ),),
-              SizedBox(height: 16.h,),
+                ),
+              ),
+              SizedBox(height: 16.h),
               TextFormField(
                 controller: emailController,
                 validator: Validation.emailValidation,
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.email),
+                  prefixIcon: const Icon(Icons.email),
                   labelText: AppLocalizations.of(context)!.email,
                 ),
               ),
-              SizedBox(height: 16.h,),
+              SizedBox(height: 16.h),
               TextFormField(
                 controller: passwordController,
                 validator: Validation.passwordValidation,
                 obscureText: isSecurePassword,
                 keyboardType: TextInputType.visiblePassword,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => login(),
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.lock),
+                  prefixIcon: const Icon(Icons.lock),
                   labelText: AppLocalizations.of(context)!.password,
-                  suffixIcon: IconButton(icon: isSecurePassword?Icon(Icons.visibility_off):Icon(Icons.visibility), onPressed: () {
-                    togglePasswordVisibility();
-                  },),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      isSecurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: togglePasswordVisibility,
+                  ),
                 ),
               ),
-              SizedBox(height: 16.h,),
+              SizedBox(height: 16.h),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  CustomTextButton(text: AppLocalizations.of(context)!.forget_password, onTap: (){}),
+                  CustomTextButton(
+                    text: AppLocalizations.of(context)!.forget_password,
+                    onTap: () => _showForgotPasswordDialog(),
+                  ),
                 ],
               ),
-              SizedBox(height: 16.h,),
+              SizedBox(height: 16.h),
               SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(onPressed: (){
-                    login();
-                  }, child: Text(AppLocalizations.of(context)!.login))),
-              SizedBox(height: 16.h,),
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: login,
+                  child: Text(AppLocalizations.of(context)!.login),
+                ),
+              ),
+              SizedBox(height: 16.h),
               Row(
                 children: [
                   Expanded(
                     child: Divider(
                       endIndent: 16.w,
-                      indent:26.w ,
+                      indent: 26.w,
                       thickness: 1.h,
                       color: ColorsManager.grey,
                     ),
                   ),
-                  Text(AppLocalizations.of(context)!.or,style: GoogleFonts.inter(
-                      fontWeight:FontWeight.w500 ,
-                      fontSize:20.sp ,
-                      color: ColorsManager.grey
-                  ),),
+                  Text(
+                    AppLocalizations.of(context)!.or,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 20.sp,
+                      color: ColorsManager.grey,
+                    ),
+                  ),
                   Expanded(
                     child: Divider(
                       endIndent: 26.w,
-                      indent:16.w ,
+                      indent: 16.w,
                       thickness: 1.h,
                       color: ColorsManager.grey,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 16.h,),
-              OutlinedButton(onPressed: (){}, child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(ImagesManager.google,width: 20.h,),
-                  Text(AppLocalizations.of(context)!.login_with_google,style: GoogleFonts.inter(
-                      fontWeight:FontWeight.w500 ,
-                      fontSize:20.sp ,
-                      color: ColorsManager.purple
-                  ),)
-                ],
-              )),
-              SizedBox(height: 16.h,),
-              OutlinedButton(onPressed: (){}, child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(AppLocalizations.of(context)!.continue_as_guest,style: GoogleFonts.inter(
-                      fontWeight:FontWeight.w500 ,
-                      fontSize:20.sp ,
-                      color: ColorsManager.purple
-                  ),)
-                ],
-              )),
-              SizedBox(height: 16.h,),
+              SizedBox(height: 16.h),
+              OutlinedButton(
+                onPressed: _loginWithGoogle,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(ImagesManager.google, width: 20.h),
+                    SizedBox(width: 8.w),
+                    Text(
+                      AppLocalizations.of(context)!.login_with_google,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16.sp,
+                        color: ColorsManager.purple,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16.h),
+              OutlinedButton(
+                onPressed: _continueAsGuest,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_outline, color: ColorsManager.purple),
+                    SizedBox(width: 8.w),
+                    Text(
+                      AppLocalizations.of(context)!.continue_as_guest,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16.sp,
+                        color: ColorsManager.purple,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16.h),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(AppLocalizations.of(context)!.dont_have_account,style: Theme.of(context).textTheme.bodySmall,),
-                  CustomTextButton(text:AppLocalizations.of(context)!.create_account,onTap:(){
-                    Navigator.pushReplacementNamed(context, Routes.register);
-                  } ,),
+                  Text(
+                    AppLocalizations.of(context)!.dont_have_account,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  CustomTextButton(
+                    text: AppLocalizations.of(context)!.create_account,
+                    onTap: () {
+                      Navigator.pushReplacementNamed(context, Routes.register);
+                    },
+                  ),
                 ],
               ),
-
+              SizedBox(height: 24.h),
             ],
           ),
         ),
@@ -165,21 +215,172 @@ class _LoginState extends State<Login> {
   }
 
   Future<void> login() async {
-    if(loginFormKey.currentState?.validate()==false)return;
-    try {
-      UiUtils.showLoading(context,false);
-      UserCredential userCredential = await FirebaseService.login(LoginRequest(
-          email: emailController.text, password: passwordController.text));
-      UiUtils.hideDialog(context);
-      UiUtils.showToastMessage("Logged_In successfully", Colors.green);
-      Navigator.pushReplacementNamed(context, Routes.mainLayout);
-    } on FirebaseAuthException catch(e){
-      UiUtils.hideDialog(context);
-      UiUtils.showToastMessage(e.code, Colors.red);
+    // Validate form
+    if (loginFormKey.currentState?.validate() == false) {
+      return;
     }
-    catch(e){
-      UiUtils.hideDialog(context);
-      UiUtils.showToastMessage("failed to login", Colors.red);
+
+    // Show loading
+    UiUtils.showLoading(context, false);
+
+    try {
+      // Attempt login
+      await FirebaseService.login(
+        LoginRequest(
+          email: emailController.text.trim(),
+          password: passwordController.text,
+        ),
+      );
+
+      // Hide loading
+      if (mounted) UiUtils.hideDialog(context);
+
+      // Show success message
+      UiUtils.showToastMessage(
+        AppLocalizations.of(context)!.logged_in_successfully,
+        Colors.green,
+      );
+
+      // Navigate to main layout
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, Routes.mainLayout);
+      }
+    } on FirebaseAuthException catch (e) {
+      // Hide loading
+      if (mounted) UiUtils.hideDialog(context);
+
+      // Show specific error message
+      String errorMessage = _getFirebaseErrorMessage(e.code);
+      UiUtils.showToastMessage(errorMessage, Colors.red);
+    } on FirebaseException catch (e) {
+      // Hide loading
+      if (mounted) UiUtils.hideDialog(context);
+
+      // Check if user is actually logged in despite the error
+      if (FirebaseService.currentUser != null) {
+        UiUtils.showToastMessage(
+          AppLocalizations.of(context)!.logged_in_successfully,
+          Colors.green,
+        );
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, Routes.mainLayout);
+        }
+      } else {
+        String errorMessage = _getFirebaseErrorMessage(e.code ?? 'unknown');
+        UiUtils.showToastMessage(errorMessage, Colors.red);
+      }
+    } catch (e) {
+      // Hide loading
+      if (mounted) UiUtils.hideDialog(context);
+
+      // Check if user is actually logged in despite the error
+      if (FirebaseService.currentUser != null) {
+        // Login actually succeeded!
+        UiUtils.showToastMessage(
+          AppLocalizations.of(context)!.logged_in_successfully,
+          Colors.green,
+        );
+
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, Routes.mainLayout);
+        }
+      } else {
+        // Actual login failure
+        print('Login error: $e'); // For debugging
+        UiUtils.showToastMessage(
+          AppLocalizations.of(context)!.failed_to_login,
+          Colors.red,
+        );
+      }
+    }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    UiUtils.showToastMessage('Google Sign-In coming soon!', Colors.orange);
+  }
+
+  void _continueAsGuest() {
+    Navigator.pushReplacementNamed(context, Routes.mainLayout);
+  }
+
+  void _showForgotPasswordDialog() {
+    final resetEmailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.forget_password),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: resetEmailController,
+            validator: Validation.emailValidation,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.email,
+              prefixIcon: const Icon(Icons.email),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.pop(ctx);
+                await _sendPasswordResetEmail(resetEmailController.text.trim());
+              }
+            },
+            child: Text(AppLocalizations.of(context)!.send),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendPasswordResetEmail(String email) async {
+    UiUtils.showLoading(context, false);
+
+    try {
+      await FirebaseService.resetPassword(email);
+      if (mounted) UiUtils.hideDialog(context);
+      UiUtils.showToastMessage(
+        'Password reset email sent! Check your inbox.',
+        Colors.green,
+      );
+    } catch (e) {
+      if (mounted) UiUtils.hideDialog(context);
+      UiUtils.showToastMessage(
+        'Failed to send reset email. Please try again.',
+        Colors.red,
+      );
+    }
+  }
+
+  String _getFirebaseErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No account found with this email.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'invalid-email':
+        return 'The email address is invalid.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection.';
+      case 'invalid-credential':
+        return 'Invalid email or password.';
+      case 'INVALID_LOGIN_CREDENTIALS':
+        return 'Invalid email or password.';
+      default:
+        return 'Login failed. Please try again.';
     }
   }
 }

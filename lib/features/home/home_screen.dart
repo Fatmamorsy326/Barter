@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(AppLocalizations.of(context)!.home),
         actions: [
           IconButton(
@@ -99,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onSelected: (_) => setState(() => _selectedCategory = category),
         selectedColor: ColorsManager.purple.withOpacity(0.2),
         checkmarkColor: ColorsManager.purple,
+        backgroundColor: Colors.grey[300],
       ),
     );
   }

@@ -1,4 +1,3 @@
-
 // ============================================
 // FILE: lib/features/account/account_screen.dart
 // ============================================
@@ -12,13 +11,100 @@ import 'package:barter/model/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
+
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  UserModel? _user;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final currentUser = FirebaseService.currentUser;
+
+      if (currentUser == null) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Not logged in';
+        });
+        return;
+      }
+
+      // Try to get user from Firestore
+      UserModel? user = await FirebaseService.getUserById(currentUser.uid);
+
+      // If no Firestore document, create one from Auth data
+      if (user == null) {
+        user = UserModel(
+          uid: currentUser.uid,
+          name: currentUser.displayName ??
+              currentUser.email?.split('@').first ??
+              'User',
+          email: currentUser.email ?? '',
+          photoUrl: currentUser.photoURL,
+          createdAt: currentUser.metadata.creationTime ?? DateTime.now(),
+        );
+
+        // Try to save to Firestore (don't fail if this doesn't work)
+        try {
+          await FirebaseService.ensureUserDocument();
+        } catch (e) {
+          print('Could not create user document: $e');
+        }
+      }
+
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading user data: $e');
+
+      // Fallback to Firebase Auth data
+      final currentUser = FirebaseService.currentUser;
+      if (currentUser != null) {
+        setState(() {
+          _user = UserModel(
+            uid: currentUser.uid,
+            name: currentUser.displayName ??
+                currentUser.email?.split('@').first ??
+                'User',
+            email: currentUser.email ?? '',
+            photoUrl: currentUser.photoURL,
+            createdAt: currentUser.metadata.creationTime ?? DateTime.now(),
+          );
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error = 'Failed to load user data';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(AppLocalizations.of(context)!.account),
         actions: [
           IconButton(
@@ -27,31 +113,73 @@ class AccountScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: FutureBuilder<UserModel?>(
-        future: FirebaseService.getUserById(FirebaseService.currentUser!.uid),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: _buildBody(),
+    );
+  }
 
-          final user = snapshot.data;
-          if (user == null) {
-            return Center(child: Text(AppLocalizations.of(context)!.error_occurred));
-          }
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-          return SingleChildScrollView(
-            padding: REdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildProfileHeader(context, user),
-                SizedBox(height: 24.h),
-                _buildStatsCard(context),
-                SizedBox(height: 24.h),
-                _buildMenuItems(context),
-              ],
+    if (_error != null && _user == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64.sp, color: Colors.grey),
+            SizedBox(height: 16.h),
+            Text(
+              _error!,
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
-          );
-        },
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: _loadUserData,
+              child: Text(AppLocalizations.of(context)!.try_again),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_user == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_off_outlined, size: 64.sp, color: Colors.grey),
+            SizedBox(height: 16.h),
+            Text(
+              'Please login to view your account',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, Routes.login);
+              },
+              child: Text(AppLocalizations.of(context)!.login),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadUserData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: REdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildProfileHeader(context, _user!),
+            SizedBox(height: 24.h),
+            _buildStatsCard(context),
+            SizedBox(height: 24.h),
+            _buildMenuItems(context),
+          ],
+        ),
       ),
     );
   }
@@ -64,15 +192,16 @@ class AccountScreen extends StatelessWidget {
             CircleAvatar(
               radius: 50.r,
               backgroundColor: ColorsManager.purple.withOpacity(0.1),
-              backgroundImage: user.photoUrl != null
+              backgroundImage: user.photoUrl != null && user.photoUrl!.isNotEmpty
                   ? NetworkImage(user.photoUrl!)
                   : null,
-              child: user.photoUrl == null
+              child: user.photoUrl == null || user.photoUrl!.isEmpty
                   ? Text(
                 user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                 style: TextStyle(
                   fontSize: 36.sp,
                   color: ColorsManager.purple,
+                  fontWeight: FontWeight.bold,
                 ),
               )
                   : null,
@@ -85,7 +214,9 @@ class AccountScreen extends StatelessWidget {
                 backgroundColor: ColorsManager.purple,
                 child: IconButton(
                   icon: Icon(Icons.camera_alt, size: 18.sp, color: Colors.white),
-                  onPressed: () {},
+                  onPressed: () {
+                    // TODO: Implement photo upload
+                  },
                 ),
               ),
             ),
@@ -101,7 +232,7 @@ class AccountScreen extends StatelessWidget {
           user.email,
           style: TextStyle(fontSize: 14.sp, color: Colors.grey),
         ),
-        if (user.location != null) ...[
+        if (user.location != null && user.location!.isNotEmpty) ...[
           SizedBox(height: 4.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -117,7 +248,12 @@ class AccountScreen extends StatelessWidget {
         ],
         SizedBox(height: 16.h),
         OutlinedButton(
-          onPressed: () => Navigator.pushNamed(context, Routes.editProfile),
+          onPressed: () async {
+            final result = await Navigator.pushNamed(context, Routes.editProfile);
+            if (result == true) {
+              _loadUserData(); // Refresh data after editing
+            }
+          },
           child: Text(AppLocalizations.of(context)!.edit_profile),
         ),
       ],
@@ -125,13 +261,17 @@ class AccountScreen extends StatelessWidget {
   }
 
   Widget _buildStatsCard(BuildContext context) {
+    final userId = FirebaseService.currentUser?.uid;
+
+    if (userId == null) {
+      return const SizedBox.shrink();
+    }
+
     return Card(
       child: Padding(
         padding: REdgeInsets.all(16),
         child: StreamBuilder<List<ItemModel>>(
-          stream: FirebaseService.getUserItemsStream(
-            FirebaseService.currentUser!.uid,
-          ),
+          stream: FirebaseService.getUserItemsStream(userId),
           builder: (context, snapshot) {
             final items = snapshot.data ?? [];
             final activeItems = items.where((i) => i.isAvailable).length;
@@ -176,6 +316,7 @@ class AccountScreen extends StatelessWidget {
         Text(
           label,
           style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -195,22 +336,22 @@ class AccountScreen extends StatelessWidget {
         _buildMenuItem(
           icon: Icons.history,
           title: AppLocalizations.of(context)!.exchange_history,
-          onTap: () {},
+          onTap: () => _showComingSoon(context, 'Exchange History'),
         ),
         _buildMenuItem(
           icon: Icons.favorite_outline,
           title: AppLocalizations.of(context)!.saved_items,
-          onTap: () {},
+          onTap: () => Navigator.pushNamed(context, Routes.savedItems),
         ),
         _buildMenuItem(
           icon: Icons.help_outline,
           title: AppLocalizations.of(context)!.help_support,
-          onTap: () {},
+          onTap: () => _showHelpDialog(context),
         ),
         _buildMenuItem(
           icon: Icons.info_outline,
           title: AppLocalizations.of(context)!.about,
-          onTap: () {},
+          onTap: () => _showAboutDialog(context),
         ),
         SizedBox(height: 16.h),
         _buildMenuItem(
@@ -218,6 +359,235 @@ class AccountScreen extends StatelessWidget {
           title: AppLocalizations.of(context)!.logout,
           onTap: () => _logout(context),
           isDestructive: true,
+        ),
+        SizedBox(height: 32.h),
+      ],
+    );
+  }
+
+  void _showComingSoon(BuildContext context, String feature) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(feature),
+        content: Text('This feature is coming soon!\n\nStay tuned for updates.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.help_outline, color: ColorsManager.purple),
+            SizedBox(width: 12.w),
+            Text(AppLocalizations.of(context)!.help_support),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Need Help?',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp),
+              ),
+              SizedBox(height: 12.h),
+              _buildHelpItem(
+                Icons.email,
+                'Email Support',
+                'support@barterapp.com',
+              ),
+              SizedBox(height: 8.h),
+              _buildHelpItem(
+                Icons.phone,
+                'Phone Support',
+                '+20 123 456 7890',
+              ),
+              SizedBox(height: 8.h),
+              _buildHelpItem(
+                Icons.language,
+                'Website',
+                'www.barterapp.com',
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'FAQs',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+              ),
+              SizedBox(height: 8.h),
+              Text('• How do I create a listing?'),
+              Text('• How do I propose an exchange?'),
+              Text('• Is Barter free to use?'),
+              Text('• How do I report inappropriate content?'),
+              SizedBox(height: 8.h),
+              Text(
+                'Visit our website for detailed FAQs and guides.',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12.sp),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHelpItem(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20.sp, color: ColorsManager.purple),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: ColorsManager.purple),
+            SizedBox(width: 12.w),
+            Text(AppLocalizations.of(context)!.about),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  padding: REdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: ColorsManager.purple.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.swap_horizontal_circle,
+                    size: 64.sp,
+                    color: ColorsManager.purple,
+                  ),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Center(
+                child: Text(
+                  'Barter',
+                  style: TextStyle(
+                    fontSize: 24.sp,
+                    fontWeight: FontWeight.bold,
+                    color: ColorsManager.purple,
+                  ),
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Center(
+                child: Text(
+                  'Version 1.0.0',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'About Barter',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.sp,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'Barter is a peer-to-peer exchange platform that allows users to trade items without money. Built with Flutter and Firebase.',
+                style: TextStyle(height: 1.5),
+              ),
+              SizedBox(height: 16.h),
+              Divider(),
+              SizedBox(height: 8.h),
+              _buildAboutRow('Developer', 'Barter Team'),
+              SizedBox(height: 8.h),
+              _buildAboutRow('Release Date', 'December 2024'),
+              SizedBox(height: 8.h),
+              _buildAboutRow('Platform', 'Android • iOS • Web'),
+              SizedBox(height: 16.h),
+              Divider(),
+              SizedBox(height: 8.h),
+              Center(
+                child: Text(
+                  '© 2024 Barter. All rights reserved.',
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAboutRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14.sp,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 14.sp,
+          ),
         ),
       ],
     );
@@ -232,7 +602,7 @@ class AccountScreen extends StatelessWidget {
     return ListTile(
       leading: Icon(
         icon,
-        color: isDestructive ? Colors.red : null,
+        color: isDestructive ? Colors.red : ColorsManager.purple,
       ),
       title: Text(
         title,
@@ -240,7 +610,10 @@ class AccountScreen extends StatelessWidget {
           color: isDestructive ? Colors.red : null,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: isDestructive ? Colors.red : Colors.grey,
+      ),
       onTap: onTap,
     );
   }
@@ -267,7 +640,9 @@ class AccountScreen extends StatelessWidget {
 
     if (confirm == true) {
       await FirebaseService.logout();
-      Navigator.pushReplacementNamed(context, Routes.login);
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, Routes.login);
+      }
     }
   }
 }

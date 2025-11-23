@@ -1,3 +1,4 @@
+
 class UserModel {
   final String uid;
   final String name;
@@ -25,7 +26,9 @@ class UserModel {
       photoUrl: json['photoUrl'],
       phone: json['phone'],
       location: json['location'],
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
     );
   }
 
@@ -39,5 +42,25 @@ class UserModel {
       'location': location,
       'createdAt': createdAt.toIso8601String(),
     };
+  }
+
+  UserModel copyWith({
+    String? uid,
+    String? name,
+    String? email,
+    String? photoUrl,
+    String? phone,
+    String? location,
+    DateTime? createdAt,
+  }) {
+    return UserModel(
+      uid: uid ?? this.uid,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl,
+      phone: phone ?? this.phone,
+      location: location ?? this.location,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }

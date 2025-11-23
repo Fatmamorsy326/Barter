@@ -20,4 +20,7 @@ class Routes {
   static const String chatDetail = "/chatDetail";
   static const String editProfile = "/editProfile";
   static const String settings = "/settings";
+  static const String ownerProfile = "/ownerProfile";
+  static const String savedItems = "/savedItems";
+
 }

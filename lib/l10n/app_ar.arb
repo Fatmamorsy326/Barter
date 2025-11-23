@@ -161,5 +161,9 @@
   "what_looking_for": "ماذا تريد في المقابل؟ (اختياري)",
   "enter_location": "أدخل موقعك",
   "enter_title": "أدخل عنوان المنتج",
-  "enter_description": "صف منتجك..."
+  "enter_description": "صف منتجك...",
+
+  "member_since": "عضو منذ",
+  "items": "المنتجات",
+  "no_items_available": "لا توجد منتجات متاحة"
 }

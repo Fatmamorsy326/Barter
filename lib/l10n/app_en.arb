@@ -161,5 +161,9 @@
   "what_looking_for": "What would you like in exchange? (Optional)",
   "enter_location": "Enter your location",
   "enter_title": "Enter item title",
-  "enter_description": "Describe your item..."
+  "enter_description": "Describe your item...",
+
+  "member_since": "Member since",
+  "items": "Items",
+  "no_items_available": "No items available"
 }

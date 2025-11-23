@@ -1,6 +1,9 @@
-class LoginRequest{
-  String email;
-  String password;
-  String? name;
-  LoginRequest({required this.email,required this.password});
+class LoginRequest {
+  final String email;
+  final String password;
+
+  LoginRequest({
+    required this.email,
+    required this.password,
+  });
 }
