@@ -1,6 +1,7 @@
 import 'package:barter/core/extensions/extensions.dart';
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
+import 'package:barter/core/widgets/exchange_notification_badge.dart';
 import 'package:barter/core/widgets/item_card.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
@@ -32,9 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
         automaticallyImplyLeading: false,
         title: Text(AppLocalizations.of(context)!.home),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+          // IconButton(
+          //   icon: const Icon(Icons.notifications_outlined),
+          //   onPressed: () {},
+          // ),
+          ExchangeNotificationBadge(
+            onTap: () => Navigator.pushNamed(context, Routes.exchangesList),
           ),
         ],
       ),

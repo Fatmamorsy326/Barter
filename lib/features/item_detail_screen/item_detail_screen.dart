@@ -454,11 +454,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.chat_bubble_outline),
+              const Icon(Icons.swap_horiz),
               SizedBox(width: 8.w),
               Text(
                 widget.item.isAvailable
-                    ? AppLocalizations.of(context)!.propose_exchange
+                    ? 'Make Offer'
                     : 'Item Not Available',
                 style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
               ),
@@ -589,21 +589,93 @@ Location: ${widget.item.location}
       return;
     }
 
-    try {
-      UiUtils.showLoading(context, false);
+    // Show options: Chat or Propose Exchange
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: REdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40.w,
+                height: 4.h,
+                margin: REdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: REdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: ColorsManager.purple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Icon(
+                    Icons.swap_horiz,
+                    color: ColorsManager.purple,
+                  ),
+                ),
+                title: const Text('Propose Exchange'),
+                subtitle: const Text('Offer one of your items'),
+                onTap: () => Navigator.pop(ctx, 'exchange'),
+              ),
+              SizedBox(height: 8.h),
+              ListTile(
+                leading: Container(
+                  padding: REdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.blue,
+                  ),
+                ),
+                title: const Text('Send Message'),
+                subtitle: const Text('Chat with the owner'),
+                onTap: () => Navigator.pop(ctx, 'chat'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
 
-      final chatId = await FirebaseService.createOrGetChat(
-        widget.item.ownerId,
-        widget.item.id,
-        widget.item.title,
+    if (choice == null) return;
+
+    if (choice == 'exchange') {
+      // Navigate to propose exchange screen
+      Navigator.pushNamed(
+        context,
+        Routes.proposeExchange,
+        arguments: widget.item,
       );
+    } else if (choice == 'chat') {
+      // Original chat functionality
+      try {
+        UiUtils.showLoading(context, false);
 
-      UiUtils.hideDialog(context);
-      Navigator.pushNamed(context, Routes.chatDetail, arguments: chatId);
-    } catch (e) {
-      UiUtils.hideDialog(context);
-      print('Error starting chat: $e');
-      UiUtils.showToastMessage('Failed to start chat', Colors.red);
+        final chatId = await FirebaseService.createOrGetChat(
+          widget.item.ownerId,
+          widget.item.id,
+          widget.item.title,
+        );
+
+        UiUtils.hideDialog(context);
+        Navigator.pushNamed(context, Routes.chatDetail, arguments: chatId);
+      } catch (e) {
+        UiUtils.hideDialog(context);
+        print('Error starting chat: $e');
+        UiUtils.showToastMessage('Failed to start chat', Colors.red);
+      }
     }
   }
 

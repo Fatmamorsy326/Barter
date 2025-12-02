@@ -2,6 +2,9 @@
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/features/Authentication/login/login.dart';
 import 'package:barter/features/Authentication/register/register.dart';
+import 'package:barter/features/exchange/exchange_detail_screen.dart';
+import 'package:barter/features/exchange/exchange_screen.dart';
+import 'package:barter/features/exchange/propose_exchange_screen.dart';
 import 'package:barter/features/item_detail_screen/item_detail_screen.dart';
 import 'package:barter/features/main_layout/main_layout.dart';
 import 'package:barter/features/add_item/add_item_screen.dart';
@@ -85,17 +88,42 @@ class RoutesManager {
         return CupertinoPageRoute(
           builder: (context) => const SavedItemsScreen(),
         );
-
-    // Default - Unknown route
-      default:
-        return CupertinoPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text('Error')),
-            body: Center(
-              child: Text('No route defined for ${settings.name}'),
+      case Routes.proposeExchange:
+        if (settings.arguments is ItemModel) {
+          return MaterialPageRoute(
+            builder: (_) => ProposeExchangeScreen(
+              requestedItem: settings.arguments as ItemModel,
             ),
-          ),
+          );
+        }
+        return unDefinedRoute();
+
+      case Routes.exchangesList:
+        return MaterialPageRoute(
+          builder: (_) => const ExchangesScreen(),
         );
+
+      case Routes.exchangeDetail:
+        if (settings.arguments is String) {
+          return MaterialPageRoute(
+            builder: (_) => ExchangeDetailScreen(
+              exchangeId: settings.arguments as String,
+            ),
+          );
+        }
+        return unDefinedRoute();
+
+      default:
+        return unDefinedRoute();
     }
+  }
+
+  static Route<dynamic> unDefinedRoute() {
+    return MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('Not Found')),
+        body: const Center(child: Text('Route not found')),
+      ),
+    );
   }
 }

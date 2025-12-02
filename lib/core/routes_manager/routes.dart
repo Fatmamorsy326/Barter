@@ -22,5 +22,7 @@ class Routes {
   static const String settings = "/settings";
   static const String ownerProfile = "/ownerProfile";
   static const String savedItems = "/savedItems";
-
+  static const String proposeExchange = '/propose-exchange';
+  static const String exchangesList = '/exchanges';
+  static const String exchangeDetail = '/exchange-detail';
 }
