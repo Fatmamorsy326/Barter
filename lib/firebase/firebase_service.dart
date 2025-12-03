@@ -311,7 +311,8 @@ class FirebaseService {
     });
   }
 
-  static Future<void> sendMessage(String chatId, String content) async {
+  static Future<void> sendMessage(String chatId, String content) async
+  {
     final messageData = {
       'senderId': currentUser!.uid,
       'content': content,
@@ -351,6 +352,95 @@ class FirebaseService {
     });
   }
 
+  // ============================================
+// ADD THIS METHOD to firebase_service.dart in the CHAT section
+// ============================================
+
+  /// Mark chat as read by updating lastSenderId to current user
+  /// This removes the unread badge
+  static Future<void> markChatAsRead(String chatId, String userId) async {
+    try {
+      await _firestore.collection('chats').doc(chatId).update({
+        'lastSenderId': userId,
+      });
+    } catch (e) {
+      print('Error marking chat as read: $e');
+    }
+  }
+
+// ============================================
+// ALTERNATIVE: More sophisticated approach with unread count
+// Add this if you want to track exact unread message count
+// ============================================
+  // ============================================
+
+  /// Mark all messages as read in a chat
+  static Future<void> markMessagesAsRead(String chatId, String userId) async {
+    try {
+      final messagesSnapshot = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isNotEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      final batch = _firestore.batch();
+
+      for (var doc in messagesSnapshot.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+
+      await batch.commit();
+
+      // Also update the chat's lastSenderId
+      await _firestore.collection('chats').doc(chatId).update({
+        'lastSenderId': userId,
+      });
+    } catch (e) {
+      print('Error marking messages as read: $e');
+    }
+  }
+
+  /// Get unread message count for a specific chat
+  static Future<int> getUnreadMessageCount(String chatId, String userId) async {
+    try {
+      final messagesSnapshot = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isNotEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      return messagesSnapshot.docs.length;
+    } catch (e) {
+      print('Error getting unread count: $e');
+      return 0;
+    }
+  }
+
+  /// Get total unread messages count across all chats
+  static Stream<int> getTotalUnreadCountStream(String userId) {
+    return _firestore
+        .collection('chats')
+        .where('participants', arrayContains: userId)
+        .snapshots()
+        .map((snapshot) {
+      int total = 0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final lastSenderId = data['lastSenderId'] ?? '';
+
+        // Count as unread if last sender is not the current user
+        if (lastSenderId.isNotEmpty && lastSenderId != userId) {
+          total++;
+        }
+      }
+      return total;
+    });
+  }
+
   // ==================== STORAGE ====================
 
   static Future<String> uploadImage(File file, String path) async {
@@ -380,7 +470,8 @@ class FirebaseService {
   }
 
   static Future<List<String>> uploadMultipleImages(List<File> files,
-      String basePath,) async {
+      String basePath,) async
+  {
     List<String> urls = [];
     for (int i = 0; i < files.length; i++) {
       final path = '$basePath/${DateTime

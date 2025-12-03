@@ -253,6 +253,11 @@ class _AccountScreenState extends State<AccountScreen> {
         ],
         SizedBox(height: 16.h),
         OutlinedButton(
+          style: ButtonStyle(
+            padding: MaterialStateProperty.all(
+              REdgeInsets.symmetric(horizontal: 8,vertical: 16),
+            ),
+          ),
           onPressed: () async {
             final result = await Navigator.pushNamed(context, Routes.editProfile);
             if (result == true) {

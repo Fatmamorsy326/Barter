@@ -63,8 +63,19 @@
 //
 //           // Sort by last message time (newest first)
 //           userChats.sort((a, b) {
-//             final aTime = DateTime.parse(a.data()['lastMessageTime'] ?? '');
-//             final bTime = DateTime.parse(b.data()['lastMessageTime'] ?? '');
+//             final aData = a.data();
+//             final bData = b.data();
+//
+//             final aTimeStr = aData['lastMessageTime'] as String?;
+//             final bTimeStr = bData['lastMessageTime'] as String?;
+//
+//             final aTime = aTimeStr != null
+//                 ? DateTime.parse(aTimeStr)
+//                 : DateTime.now();
+//             final bTime = bTimeStr != null
+//                 ? DateTime.parse(bTimeStr)
+//                 : DateTime.now();
+//
 //             return bTime.compareTo(aTime);
 //           });
 //

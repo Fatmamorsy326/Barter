@@ -1,3 +1,8 @@
+// ============================================
+// FILE: lib/model/chat_model.dart (UPDATE)
+// Add unreadCount field
+// ============================================
+
 class ChatModel {
   final String chatId;
   final List<String> participants;
@@ -6,6 +11,7 @@ class ChatModel {
   final String lastMessage;
   final DateTime lastMessageTime;
   final String lastSenderId;
+  final int unreadCount; // ADD THIS FIELD
 
   ChatModel({
     required this.chatId,
@@ -15,6 +21,7 @@ class ChatModel {
     required this.lastMessage,
     required this.lastMessageTime,
     required this.lastSenderId,
+    this.unreadCount = 0, // ADD THIS
   });
 
   factory ChatModel.fromJson(Map<String, dynamic> json) {
@@ -24,8 +31,11 @@ class ChatModel {
       itemId: json['itemId'] ?? '',
       itemTitle: json['itemTitle'] ?? '',
       lastMessage: json['lastMessage'] ?? '',
-      lastMessageTime: DateTime.parse(json['lastMessageTime']),
+      lastMessageTime: json['lastMessageTime'] != null
+          ? DateTime.parse(json['lastMessageTime'])
+          : DateTime.now(),
       lastSenderId: json['lastSenderId'] ?? '',
+      unreadCount: json['unreadCount'] ?? 0, // ADD THIS
     );
   }
 
@@ -38,6 +48,7 @@ class ChatModel {
       'lastMessage': lastMessage,
       'lastMessageTime': lastMessageTime.toIso8601String(),
       'lastSenderId': lastSenderId,
+      'unreadCount': unreadCount, // ADD THIS
     };
   }
 }
@@ -62,7 +73,9 @@ class MessageModel {
       messageId: json['messageId'] ?? '',
       senderId: json['senderId'] ?? '',
       content: json['content'] ?? '',
-      timestamp: DateTime.parse(json['timestamp']),
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'])
+          : DateTime.now(),
       isRead: json['isRead'] ?? false,
     );
   }

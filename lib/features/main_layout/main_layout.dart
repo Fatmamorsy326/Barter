@@ -1,5 +1,6 @@
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
+import 'package:barter/core/widgets/unread_messages_badge.dart';
 import 'package:barter/features/account/account_screen.dart';
 import 'package:barter/features/chat/chat_list_screen.dart';
 import 'package:barter/features/home/home_screen.dart';
@@ -46,8 +47,10 @@ class _MainLayoutState extends State<MainLayout> {
             label: AppLocalizations.of(context)!.home,
           ),
           BottomNavigationBarItem(
-            icon: Icon(
-              _currentIndex == 1 ? Icons.chat_bubble : Icons.chat_bubble_outline,
+            icon: UnreadMessagesBadge(
+              child: Icon(
+                _currentIndex == 1 ? Icons.chat_bubble : Icons.chat_bubble_outline,
+              ),
             ),
             label: AppLocalizations.of(context)!.chat,
           ),

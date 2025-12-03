@@ -1,6 +1,6 @@
-
 // ============================================
-// FILE: lib/features/chat/chat_detail_screen.dart
+// FILE: lib/features/chat/chat_detail_screen.dart (UPDATED)
+// Add this to mark chat as read when opened
 // ============================================
 
 import 'package:barter/core/resources/colors_manager.dart';
@@ -25,10 +25,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _markChatAsRead();
+  }
+
+  @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // Mark chat as read when user opens it
+  Future<void> _markChatAsRead() async {
+    try {
+      final currentUserId = FirebaseService.currentUser?.uid;
+      if (currentUserId == null) return;
+
+      // Update lastSenderId to current user ID to indicate "read"
+      // This is a simple approach - you can also add a separate "unread" field
+      await FirebaseService.markChatAsRead(widget.chatId, currentUserId);
+    } catch (e) {
+      print('Error marking chat as read: $e');
+    }
   }
 
   @override
@@ -91,9 +111,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
         if (messages.isEmpty) {
           return Center(
-            child: Text(
-              AppLocalizations.of(context)!.start_the_conversation,
-              style: TextStyle(color: Colors.grey[600]),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline,
+                  size: 64.sp,
+                  color: Colors.grey[300],
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  AppLocalizations.of(context)!.start_the_conversation,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14.sp,
+                  ),
+                ),
+              ],
             ),
           );
         }
@@ -152,6 +186,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ),
                 ),
                 textCapitalization: TextCapitalization.sentences,
+                maxLines: null,
+                keyboardType: TextInputType.multiline,
               ),
             ),
             SizedBox(width: 8.w),
@@ -160,6 +196,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               child: IconButton(
                 icon: const Icon(Icons.send, color: Colors.white),
                 onPressed: _sendMessage,
+                padding: EdgeInsets.zero,
               ),
             ),
           ],
@@ -208,6 +245,7 @@ class MessageBubble extends StatelessWidget {
               message.content,
               style: TextStyle(
                 color: isMe ? Colors.white : Colors.black87,
+                fontSize: 14.sp,
               ),
             ),
             SizedBox(height: 4.h),
