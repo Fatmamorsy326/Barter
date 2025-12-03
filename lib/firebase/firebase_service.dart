@@ -218,27 +218,48 @@ class FirebaseService {
 
   // ==================== CHAT ====================
 
-  static Future<String> createOrGetChat(String otherUserId,
+  // ============================================
+// REPLACE createOrGetChat in firebase_service.dart
+// ============================================
+
+  static Future<String> createOrGetChat(
+      String otherUserId,
       String itemId,
-      String itemTitle,) async {
+      String itemTitle,
+      ) async {
     final currentUserId = currentUser!.uid;
 
     try {
-      // Check if chat already exists for this item between these two users
+      print('=== Creating/Getting Chat ===');
+      print('Current user: $currentUserId');
+      print('Other user: $otherUserId');
+      print('Item: $itemId - $itemTitle');
+
+      // Check if chat already exists between these two users
+      // We'll check both ways (currentUser->otherUser and otherUser->currentUser)
       final existingChats = await _firestore
           .collection('chats')
-          .where('itemId', isEqualTo: itemId)
+          .where('participants', arrayContains: currentUserId)
           .get();
+
+      print('Found ${existingChats.docs.length} chats for current user');
 
       // Look for a chat with both participants
       for (var doc in existingChats.docs) {
         final data = doc.data();
         final participants = List<String>.from(data['participants'] ?? []);
 
-        // Check if both users are in this chat
-        if (participants.contains(currentUserId) &&
-            participants.contains(otherUserId)) {
-          print('Found existing chat: ${doc.id}');
+        // Check if this chat includes both users
+        if (participants.contains(currentUserId) && participants.contains(otherUserId)) {
+          print('✅ Found existing chat: ${doc.id}');
+
+          // Update the item info in case they're discussing a different item now
+          await doc.reference.update({
+            'itemId': itemId,
+            'itemTitle': itemTitle,
+            'lastMessageTime': DateTime.now().toIso8601String(),
+          });
+
           return doc.id;
         }
       }
@@ -259,7 +280,7 @@ class FirebaseService {
     };
 
     final docRef = await _firestore.collection('chats').add(chatData);
-    print('Created new chat: ${docRef.id}');
+    print('✅ Created new chat: ${docRef.id}');
     return docRef.id;
   }
 
@@ -485,6 +506,13 @@ class FirebaseService {
   // ==================== EXCHANGES (FIXED) ====================
 
   /// Create a new exchange proposal
+  // ============================================
+// FILE: lib/firebase/firebase_service.dart (FIXED EXCHANGE METHODS)
+// ============================================
+
+  // ==================== EXCHANGES (FIXED) ====================
+
+  /// Create a new exchange proposal
   static Future<String> createExchange({
     required String proposedTo,
     required String itemOfferedId,
@@ -688,16 +716,34 @@ class FirebaseService {
     });
   }
 
-  /// Get exchanges for a specific item
+  /// Get exchanges for a specific item (both offered and requested)
   static Future<List<ExchangeModel>> getItemExchanges(String itemId) async {
     try {
-      final snapshot = await _firestore
+      // Get exchanges where this item is offered
+      final offeredSnapshot = await _firestore
+          .collection('exchanges')
+          .where('itemOffered.itemId', isEqualTo: itemId)
+          .get();
+
+      // Get exchanges where this item is requested
+      final requestedSnapshot = await _firestore
           .collection('exchanges')
           .where('itemRequested.itemId', isEqualTo: itemId)
           .get();
 
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
+      // Combine both lists and remove duplicates
+      final allDocs = [...offeredSnapshot.docs, ...requestedSnapshot.docs];
+      final uniqueIds = <String>{};
+      final uniqueDocs = allDocs.where((doc) {
+        if (uniqueIds.contains(doc.id)) {
+          return false;
+        }
+        uniqueIds.add(doc.id);
+        return true;
+      }).toList();
+
+      return uniqueDocs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         return ExchangeModel.fromJson(data);
       }).toList();

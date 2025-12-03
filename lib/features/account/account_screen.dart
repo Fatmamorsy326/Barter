@@ -1,15 +1,21 @@
 // ============================================
-// FILE: lib/features/account/account_screen.dart
+// FILE: lib/features/account/account_screen.dart (UPDATED)
 // ============================================
 
+import 'dart:io';
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
+import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
+import 'package:barter/model/exchange_model.dart';
+import 'package:barter/services/image_upload_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -214,9 +220,8 @@ class _AccountScreenState extends State<AccountScreen> {
                 backgroundColor: ColorsManager.purple,
                 child: IconButton(
                   icon: Icon(Icons.camera_alt, size: 18.sp, color: Colors.white),
-                  onPressed: () {
-                    // TODO: Implement photo upload
-                  },
+                  padding: EdgeInsets.zero,
+                  onPressed: _updateProfilePhoto,
                 ),
               ),
             ),
@@ -272,28 +277,38 @@ class _AccountScreenState extends State<AccountScreen> {
         padding: REdgeInsets.all(16),
         child: StreamBuilder<List<ItemModel>>(
           stream: FirebaseService.getUserItemsStream(userId),
-          builder: (context, snapshot) {
-            final items = snapshot.data ?? [];
+          builder: (context, itemsSnapshot) {
+            final items = itemsSnapshot.data ?? [];
             final activeItems = items.where((i) => i.isAvailable).length;
 
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                  AppLocalizations.of(context)!.total_listings,
-                  items.length.toString(),
-                ),
-                _buildDivider(),
-                _buildStatItem(
-                  AppLocalizations.of(context)!.active,
-                  activeItems.toString(),
-                ),
-                _buildDivider(),
-                _buildStatItem(
-                  AppLocalizations.of(context)!.exchanges,
-                  '0',
-                ),
-              ],
+            return StreamBuilder<List<ExchangeModel>>(
+              stream: FirebaseService.getUserExchangesStream(userId),
+              builder: (context, exchangesSnapshot) {
+                final exchanges = exchangesSnapshot.data ?? [];
+                final completedExchanges = exchanges
+                    .where((e) => e.status == ExchangeStatus.completed)
+                    .length;
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem(
+                      AppLocalizations.of(context)!.total_listings,
+                      items.length.toString(),
+                    ),
+                    _buildDivider(),
+                    _buildStatItem(
+                      AppLocalizations.of(context)!.active,
+                      activeItems.toString(),
+                    ),
+                    _buildDivider(),
+                    _buildStatItem(
+                      AppLocalizations.of(context)!.exchanges,
+                      completedExchanges.toString(),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -334,9 +349,9 @@ class _AccountScreenState extends State<AccountScreen> {
     return Column(
       children: [
         _buildMenuItem(
-          icon: Icons.history,
+          icon: Icons.swap_horiz,
           title: AppLocalizations.of(context)!.exchange_history,
-          onTap: () => _showComingSoon(context, 'Exchange History'),
+          onTap: () => Navigator.pushNamed(context, Routes.exchangesList),
         ),
         _buildMenuItem(
           icon: Icons.favorite_outline,
@@ -365,21 +380,56 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
-    showDialog(
+  // ==================== PHOTO UPLOAD ====================
+
+  Future<void> _updateProfilePhoto() async {
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(feature),
-        content: Text('This feature is coming soon!\n\nStay tuned for updates.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: REdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: ColorsManager.purple),
+                title: const Text('Take Photo'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: ColorsManager.purple),
+                title: const Text('Choose from Gallery'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              if (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Remove Photo'),
+                  onTap: () => Navigator.pop(ctx, null),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
+
+    if (source == null && _user?.photoUrl != null) {
+      // Remove photo
+      await _removeProfilePhoto();
+      return;
+    }
+
+    if (source != null) {
+      await _pickAndUploadPhoto(source);
+    }
   }
+
+
+
+  // ==================== DIALOGS ====================
 
   void _showHelpDialog(BuildContext context) {
     showDialog(
@@ -645,4 +695,169 @@ class _AccountScreenState extends State<AccountScreen> {
       }
     }
   }
+
+
+  // ============================================
+// ALTERNATIVE: More reliable photo upload
+// Replace both _pickAndUploadPhoto and _removeProfilePhoto
+// ============================================
+
+  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+
+      if (image == null) {
+        print('No image selected');
+        return;
+      }
+
+      if (!mounted) return;
+      UiUtils.showLoading(context, false);
+
+      print('=== Photo Upload Started ===');
+      print('Image path: ${image.path}');
+      print('File size: ${File(image.path).lengthSync()} bytes');
+
+      // Upload to ImgBB
+      final File imageFile = File(image.path);
+      final imageUrl = await ImageUploadService.uploadImage(imageFile);
+
+      print('Upload returned: $imageUrl');
+
+      if (imageUrl == null || imageUrl.isEmpty) {
+        print('Upload failed: URL is null or empty');
+        if (!mounted) return;
+        UiUtils.hideDialog(context);
+        UiUtils.showToastMessage('Failed to upload photo', Colors.red);
+        return;
+      }
+
+      print('✅ Image uploaded successfully: $imageUrl');
+
+      // Update Firestore directly with userId
+      final userId = FirebaseService.currentUser?.uid;
+      if (userId != null) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .update({'photoUrl': imageUrl});
+          print('✅ Firestore updated');
+        } catch (e) {
+          print('⚠️ Firestore update warning: $e');
+          // Don't fail, photo is uploaded
+        }
+      }
+
+      // Update Firebase Auth profile
+      try {
+        await FirebaseService.currentUser?.updatePhotoURL(imageUrl);
+        print('✅ Firebase Auth updated');
+      } catch (e) {
+        print('⚠️ Firebase Auth update warning: $e');
+        // Don't fail, photo is uploaded
+      }
+
+      if (!mounted) return;
+      UiUtils.hideDialog(context);
+
+      UiUtils.showToastMessage('✅ Profile photo updated!', Colors.green);
+
+      // Force reload user data from Firestore
+      await _loadUserData();
+
+      print('=== Photo Upload Complete ===');
+    } catch (e, stackTrace) {
+      print('=== ❌ Photo Upload Error ===');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+
+      if (!mounted) return;
+
+      // Hide loading if still showing
+      try {
+        UiUtils.hideDialog(context);
+      } catch (_) {}
+
+      UiUtils.showToastMessage('Error: ${e.toString()}', Colors.red);
+    }
+  }
+
+  Future<void> _removeProfilePhoto() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Photo'),
+        content: const Text('Are you sure you want to remove your profile photo?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        if (!mounted) return;
+        UiUtils.showLoading(context, false);
+
+        print('=== Removing Profile Photo ===');
+
+        // Update Firestore directly
+        final userId = FirebaseService.currentUser?.uid;
+        if (userId != null) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .update({'photoUrl': ''});
+            print('✅ Firestore updated');
+          } catch (e) {
+            print('⚠️ Firestore update warning: $e');
+          }
+        }
+
+        // Update Firebase Auth
+        try {
+          await FirebaseService.currentUser?.updatePhotoURL(null);
+          print('✅ Firebase Auth updated');
+        } catch (e) {
+          print('⚠️ Firebase Auth update warning: $e');
+        }
+
+        if (!mounted) return;
+        UiUtils.hideDialog(context);
+        UiUtils.showToastMessage('✅ Profile photo removed', Colors.green);
+
+        // Force reload user data
+        await _loadUserData();
+
+        print('=== Photo Removal Complete ===');
+      } catch (e) {
+        print('❌ Error removing photo: $e');
+        if (!mounted) return;
+
+        try {
+          UiUtils.hideDialog(context);
+        } catch (_) {}
+
+        UiUtils.showToastMessage('Error: ${e.toString()}', Colors.red);
+      }
+    }
+  }
+
+
 }

@@ -7,6 +7,7 @@ import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
+import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
 import 'package:flutter/material.dart';
@@ -431,6 +432,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
+
   Widget _buildBottomBar(BuildContext context) {
     return Container(
       padding: REdgeInsets.all(16),
@@ -469,57 +471,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  Widget _buildOwnerBottomBar(BuildContext context) {
-    return Container(
-      padding: REdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _editItem,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.edit),
-                    SizedBox(width: 8.w),
-                    const Text('Edit'),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _toggleAvailability,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.item.isAvailable ? Colors.orange : Colors.green,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(widget.item.isAvailable ? Icons.visibility_off : Icons.visibility),
-                    SizedBox(width: 8.w),
-                    Text(widget.item.isAvailable ? 'Hide' : 'Show'),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// ============================================
+// REPLACE _buildOwnerBottomBar in item_detail_screen.dart
+// ============================================
+
 
   // ==================== ACTIONS ====================
 
@@ -579,6 +534,8 @@ Location: ${widget.item.location}
       arguments: widget.item.ownerId,
     );
   }
+
+
 
   Future<void> _startChat(BuildContext context) async {
     final currentUser = FirebaseService.currentUser;
@@ -692,27 +649,6 @@ Location: ${widget.item.location}
     });
   }
 
-  Future<void> _toggleAvailability() async {
-    try {
-      final updatedItem = widget.item.copyWith(
-        isAvailable: !widget.item.isAvailable,
-      );
-
-      await FirebaseService.updateItem(updatedItem);
-
-      UiUtils.showToastMessage(
-        updatedItem.isAvailable ? 'Item is now visible' : 'Item is now hidden',
-        Colors.green,
-      );
-
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      print('Error toggling availability: $e');
-      UiUtils.showToastMessage('Failed to update item', Colors.red);
-    }
-  }
 
   Future<void> _deleteItem() async {
     final confirm = await showDialog<bool>(
@@ -766,4 +702,223 @@ Location: ${widget.item.location}
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+//   -----------------------------------------------------------------------
+
+
+// ============================================
+// ADD THESE METHODS TO item_detail_screen.dart
+// Place them with your other methods (after _deleteItem or before _formatDate)
+// ============================================
+
+  Future<bool> _checkIfInActiveExchange() async {
+    try {
+      // Get all exchanges for this item
+      final exchanges = await FirebaseService.getItemExchanges(widget.item.id);
+
+      // Check if any exchange is active (accepted but not completed)
+      final hasActiveExchange = exchanges.any((exchange) =>
+      exchange.status == ExchangeStatus.accepted
+      );
+
+      print('Item ${widget.item.id} has active exchange: $hasActiveExchange');
+      return hasActiveExchange;
+    } catch (e) {
+      print('Error checking active exchanges: $e');
+      return false;
+    }
+  }
+
+  void _showCannotMakeAvailableDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.lock, color: Colors.orange),
+            SizedBox(width: 8.w),
+            const Text('Item in Active Exchange'),
+          ],
+        ),
+        content: const Text(
+          'This item is currently in an active exchange and cannot be made available.\n\n'
+              'You can make it available again after the exchange is completed or cancelled.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _navigateToExchanges();
+            },
+            child: const Text('View Exchanges'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToExchanges() {
+    Navigator.pushNamed(context, Routes.exchangesList);
+  }
+
+  // REPLACE your existing _toggleAvailability method with this:
+  Future<void> _toggleAvailability() async {
+    // Check if item is in an active exchange
+    if (!widget.item.isAvailable) {
+      final isInActiveExchange = await _checkIfInActiveExchange();
+
+      if (isInActiveExchange) {
+        _showCannotMakeAvailableDialog();
+        return;
+      }
+    }
+
+    try {
+      final updatedItem = widget.item.copyWith(
+        isAvailable: !widget.item.isAvailable,
+      );
+
+      await FirebaseService.updateItem(updatedItem);
+
+      UiUtils.showToastMessage(
+        updatedItem.isAvailable ? 'Item is now visible' : 'Item is now hidden',
+        Colors.green,
+      );
+
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      print('Error toggling availability: $e');
+      UiUtils.showToastMessage('Failed to update item', Colors.red);
+    }
+  }
+
+  // REPLACE your existing _buildOwnerBottomBar method with this:
+  Widget _buildOwnerBottomBar(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _checkIfInActiveExchange(),
+      builder: (context, snapshot) {
+        final isInActiveExchange = snapshot.data ?? false;
+
+        return Container(
+          padding: REdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Show warning if in active exchange
+                if (isInActiveExchange) ...[
+                  Container(
+                    padding: REdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    margin: REdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.swap_horiz,
+                          color: Colors.orange,
+                          size: 20.sp,
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'This item is in an active exchange',
+                            style: TextStyle(
+                              color: Colors.orange[800],
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _navigateToExchanges,
+                          style: TextButton.styleFrom(
+                            padding: REdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            'View',
+                            style: TextStyle(fontSize: 12.sp),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _editItem,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.edit),
+                            SizedBox(width: 8.w),
+                            const Text('Edit'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isInActiveExchange && !widget.item.isAvailable
+                            ? null // Disable if in active exchange and unavailable
+                            : _toggleAvailability,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: widget.item.isAvailable
+                              ? Colors.orange
+                              : (isInActiveExchange ? Colors.grey : Colors.green),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isInActiveExchange && !widget.item.isAvailable
+                                  ? Icons.lock
+                                  : (widget.item.isAvailable
+                                  ? Icons.visibility_off
+                                  : Icons.visibility),
+                            ),
+                            SizedBox(width: 8.w),
+                            Text(
+                              isInActiveExchange && !widget.item.isAvailable
+                                  ? 'Locked'
+                                  : (widget.item.isAvailable ? 'Hide' : 'Show'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
 }

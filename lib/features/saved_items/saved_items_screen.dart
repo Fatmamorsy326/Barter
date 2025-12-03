@@ -2,7 +2,6 @@
 // FILE: lib/features/saved_items/saved_items_screen.dart
 // ============================================
 
-import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';

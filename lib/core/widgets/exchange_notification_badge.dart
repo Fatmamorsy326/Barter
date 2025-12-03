@@ -2,7 +2,6 @@
 // FILE: lib/widgets/exchange_notification_badge.dart
 // ============================================
 
-import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';

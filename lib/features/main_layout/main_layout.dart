@@ -6,7 +6,6 @@ import 'package:barter/features/home/home_screen.dart';
 import 'package:barter/features/my_listing/my_listing_screen.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});

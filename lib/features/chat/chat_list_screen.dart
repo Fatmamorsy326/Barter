@@ -1,3 +1,6 @@
+// ============================================
+// FILE: lib/features/chat/chat_list_screen.dart (UPDATED)
+// ============================================
 
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
@@ -38,21 +41,33 @@ class ChatListScreen extends StatelessWidget {
                     AppLocalizations.of(context)!.no_chats_yet,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Start a conversation about an item',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14.sp),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             );
           }
 
+          // Remove duplicate chats (same participants)
+          final uniqueChats = _removeDuplicateChats(chats);
+
+          print('Total chats: ${chats.length}');
+          print('Unique chats: ${uniqueChats.length}');
+
           return ListView.separated(
-            itemCount: chats.length,
+            itemCount: uniqueChats.length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
               return ChatListTile(
-                chat: chats[index],
+                chat: uniqueChats[index],
                 onTap: () => Navigator.pushNamed(
                   context,
                   Routes.chatDetail,
-                  arguments: chats[index].chatId,
+                  arguments: uniqueChats[index].chatId,
                 ),
               );
             },
@@ -60,6 +75,31 @@ class ChatListScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  List<ChatModel> _removeDuplicateChats(List<ChatModel> chats) {
+    final Map<String, ChatModel> uniqueChatsMap = {};
+    final currentUserId = FirebaseService.currentUser!.uid;
+
+    for (var chat in chats) {
+      // Get the other user's ID
+      final otherUserId = chat.participants.firstWhere(
+            (id) => id != currentUserId,
+        orElse: () => '',
+      );
+
+      if (otherUserId.isEmpty) continue;
+
+      // Use other user ID as key to group chats
+      // Keep only the most recent chat
+      if (!uniqueChatsMap.containsKey(otherUserId) ||
+          chat.lastMessageTime.isAfter(uniqueChatsMap[otherUserId]!.lastMessageTime)) {
+        uniqueChatsMap[otherUserId] = chat;
+      }
+    }
+
+    return uniqueChatsMap.values.toList()
+      ..sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
   }
 }
 
@@ -72,7 +112,14 @@ class ChatListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentUserId = FirebaseService.currentUser!.uid;
-    final otherUserId = chat.participants.firstWhere((id) => id != currentUserId);
+    final otherUserId = chat.participants.firstWhere(
+          (id) => id != currentUserId,
+      orElse: () => '',
+    );
+
+    if (otherUserId.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return FutureBuilder<UserModel?>(
       future: FirebaseService.getUserById(otherUserId),
@@ -83,15 +130,18 @@ class ChatListTile extends StatelessWidget {
           onTap: onTap,
           leading: CircleAvatar(
             backgroundColor: ColorsManager.purple.withOpacity(0.1),
-            backgroundImage: otherUser?.photoUrl != null
-                ? NetworkImage(otherUser!.photoUrl!)
+            backgroundImage: otherUser?.photoUrl != null && otherUser!.photoUrl!.isNotEmpty
+                ? NetworkImage(otherUser.photoUrl!)
                 : null,
-            child: otherUser?.photoUrl == null
+            child: otherUser?.photoUrl == null || otherUser!.photoUrl!.isEmpty
                 ? Text(
               otherUser?.name.isNotEmpty == true
                   ? otherUser!.name[0].toUpperCase()
                   : '?',
-              style: TextStyle(color: ColorsManager.purple),
+              style: TextStyle(
+                color: ColorsManager.purple,
+                fontWeight: FontWeight.bold,
+              ),
             )
                 : null,
           ),
@@ -102,26 +152,72 @@ class ChatListTile extends StatelessWidget {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                chat.itemTitle,
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: ColorsManager.purple,
+              if (chat.itemTitle.isNotEmpty)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.shopping_bag_outlined,
+                      size: 12.sp,
+                      color: ColorsManager.purple,
+                    ),
+                    SizedBox(width: 4.w),
+                    Expanded(
+                      child: Text(
+                        chat.itemTitle,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: ColorsManager.purple,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              SizedBox(height: 2.h),
               Text(
                 chat.lastMessage.isEmpty
                     ? AppLocalizations.of(context)!.start_the_conversation
                     : chat.lastMessage,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 13.sp,
+                ),
               ),
             ],
           ),
-          trailing: Text(
-            _formatTime(chat.lastMessageTime),
-            style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatTime(chat.lastMessageTime),
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.grey,
+                ),
+              ),
+              if (chat.lastSenderId.isNotEmpty &&
+                  chat.lastSenderId != currentUserId)
+                Container(
+                  margin: REdgeInsets.only(top: 4),
+                  padding: REdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: ColorsManager.purple,
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Text(
+                    '1',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ),
           isThreeLine: true,
         );
@@ -134,7 +230,9 @@ class ChatListTile extends StatelessWidget {
     final diff = now.difference(time);
 
     if (diff.inDays > 0) {
-      return '${diff.inDays}d';
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays}d';
+      return '${time.day}/${time.month}';
     } else if (diff.inHours > 0) {
       return '${diff.inHours}h';
     } else if (diff.inMinutes > 0) {
