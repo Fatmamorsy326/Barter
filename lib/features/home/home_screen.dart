@@ -3,6 +3,7 @@ import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/widgets/exchange_notification_badge.dart';
 import 'package:barter/core/widgets/item_card.dart';
+import 'package:barter/core/widgets/shimmer_loading.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/item_model.dart';
@@ -16,62 +17,182 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   ItemCategory? _selectedCategory;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+    _fadeController.forward();
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(AppLocalizations.of(context)!.home),
-        actions: [
-          // IconButton(
-          //   icon: const Icon(Icons.notifications_outlined),
-          //   onPressed: () {},
-          // ),
-          ExchangeNotificationBadge(
-            onTap: () => Navigator.pushNamed(context, Routes.exchangesList),
+      backgroundColor: ColorsManager.background,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          _buildSliverAppBar(context),
+        ],
+        body: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Column(
+            children: [
+              _buildSearchBar(),
+              _buildCategoryFilter(),
+              Expanded(child: _buildItemsList()),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          _buildCategoryFilter(),
-          Expanded(child: _buildItemsList()),
-        ],
+        ),
       ),
     );
   }
 
+  Widget _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      floating: true,
+      snap: true,
+      automaticallyImplyLeading: false,
+      expandedHeight: 80.h,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              ColorsManager.gradientStart,
+              ColorsManager.gradientEnd,
+            ],
+          ),
+        ),
+        child: FlexibleSpaceBar(
+          titlePadding: REdgeInsets.only(left: 20, bottom: 16),
+          title: Row(
+            children: [
+              Container(
+                padding: REdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  Icons.swap_horizontal_circle_rounded,
+                  color: Colors.white,
+                  size: 22.sp,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Text(
+                AppLocalizations.of(context)!.home,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20.sp,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        Container(
+          margin: REdgeInsets.only(right: 12),
+          child: ExchangeNotificationBadge(
+            onTap: () => Navigator.pushNamed(context, Routes.exchangesList),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSearchBar() {
-    return Padding(
-      padding: REdgeInsets.all(16),
+    return Container(
+      margin: REdgeInsets.fromLTRB(16, 16, 16, 8),
+      decoration: BoxDecoration(
+        color: ColorsManager.white,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+            color: ColorsManager.shadow,
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: TextField(
         controller: _searchController,
+        style: TextStyle(
+          fontSize: 15.sp,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           hintText: AppLocalizations.of(context)!.search_items,
-          prefixIcon: const Icon(Icons.search),
+          hintStyle: TextStyle(
+            color: ColorsManager.greyLight,
+            fontWeight: FontWeight.w400,
+          ),
+          prefixIcon: Container(
+            padding: REdgeInsets.all(12),
+            child: Container(
+              padding: REdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    ColorsManager.gradientStart,
+                    ColorsManager.gradientEnd,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Icon(
+                Icons.search_rounded,
+                color: Colors.white,
+                size: 18.sp,
+              ),
+            ),
+          ),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () {
-              _searchController.clear();
-              setState(() {});
-            },
-          )
+                  icon: Container(
+                    padding: REdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: ColorsManager.greyLight.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 16.sp,
+                      color: ColorsManager.grey,
+                    ),
+                  ),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                  },
+                )
               : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -84,10 +205,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: REdgeInsets.symmetric(horizontal: 16),
+        physics: const BouncingScrollPhysics(),
         children: [
           _buildCategoryChip(null, 'All'),
           ...ItemCategory.values.map(
-                (cat) => _buildCategoryChip(cat, cat.name.capitalize()),
+            (cat) => _buildCategoryChip(cat, cat.name.capitalize()),
           ),
         ],
       ),
@@ -96,15 +218,63 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoryChip(ItemCategory? category, String label) {
     final isSelected = _selectedCategory == category;
+    // Get icon - use grid_view for 'All', otherwise use category icon
+    final IconData chipIcon = category?.icon ?? Icons.grid_view_rounded;
+    
     return Padding(
-      padding: REdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) => setState(() => _selectedCategory = category),
-        selectedColor: ColorsManager.purple.withOpacity(0.2),
-        checkmarkColor: ColorsManager.purple,
-        backgroundColor: Colors.grey[300],
+      padding: REdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedCategory = category),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: REdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [
+                      ColorsManager.gradientStart,
+                      ColorsManager.gradientEnd,
+                    ],
+                  )
+                : null,
+            color: isSelected ? null : ColorsManager.white,
+            borderRadius: BorderRadius.circular(25.r),
+            border: isSelected
+                ? null
+                : Border.all(
+                    color: ColorsManager.greyLight.withOpacity(0.5),
+                    width: 1,
+                  ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: ColorsManager.purple.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                chipIcon,
+                size: 16.sp,
+                color: isSelected ? Colors.white : ColorsManager.purple,
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : ColorsManager.grey,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 13.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -114,41 +284,32 @@ class _HomeScreenState extends State<HomeScreen> {
       stream: FirebaseService.getItemsStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return _buildShimmerGrid();
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return _buildErrorState(snapshot.error.toString());
         }
 
         final items = snapshot.data ?? [];
         final filteredItems = _filterItems(items);
 
         if (filteredItems.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.inbox_outlined, size: 64.sp, color: Colors.grey),
-                SizedBox(height: 16.h),
-                Text(
-                  AppLocalizations.of(context)!.no_items_found,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ],
-            ),
-          );
+          return _buildEmptyState();
         }
 
         return RefreshIndicator(
           onRefresh: () async {},
+          color: ColorsManager.purple,
+          backgroundColor: Colors.white,
           child: GridView.builder(
             padding: REdgeInsets.all(16),
+            physics: const BouncingScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 12.w,
-              mainAxisSpacing: 12.h,
-              childAspectRatio: 0.75,
+              crossAxisSpacing: 14.w,
+              mainAxisSpacing: 14.h,
+              childAspectRatio: 0.72,
             ),
             itemCount: filteredItems.length,
             itemBuilder: (context, index) {
@@ -163,12 +324,111 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildShimmerGrid() {
+    return GridView.builder(
+      padding: REdgeInsets.all(16),
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 14.w,
+        mainAxisSpacing: 14.h,
+        childAspectRatio: 0.72,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) => const ShimmerItemCard(),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: REdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  ColorsManager.purpleSoft,
+                  ColorsManager.purpleSoft.withOpacity(0.5),
+                ],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.inventory_2_rounded,
+              size: 56.sp,
+              color: ColorsManager.purple,
+            ),
+          ),
+          SizedBox(height: 20.h),
+          Text(
+            AppLocalizations.of(context)!.no_items_found,
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: ColorsManager.black,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'Try adjusting your search or filters',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: ColorsManager.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: REdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: ColorsManager.error.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.error_outline_rounded,
+              size: 48.sp,
+              color: ColorsManager.error,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'Something went wrong',
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              color: ColorsManager.black,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            error,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: ColorsManager.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   List<ItemModel> _filterItems(List<ItemModel> items) {
     return items.where((item) {
       final matchesSearch = _searchController.text.isEmpty ||
           item.title.toLowerCase().contains(
-            _searchController.text.toLowerCase(),
-          );
+                _searchController.text.toLowerCase(),
+              );
       final matchesCategory =
           _selectedCategory == null || item.category == _selectedCategory;
       return matchesSearch && matchesCategory;

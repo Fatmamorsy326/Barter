@@ -13,62 +13,151 @@ class ChatListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(AppLocalizations.of(context)!.chat),
+      backgroundColor: ColorsManager.background,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          _buildSliverAppBar(context),
+        ],
+        body: StreamBuilder<List<ChatModel>>(
+          stream: FirebaseService.getUserChatsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildShimmerList();
+            }
+
+            final chats = snapshot.data ?? [];
+
+            if (chats.isEmpty) {
+              return _buildEmptyState(context);
+            }
+
+            // Remove duplicate chats (same participants)
+            final uniqueChats = _removeDuplicateChats(chats);
+
+            return ListView.builder(
+              padding: REdgeInsets.fromLTRB(16, 8, 16, 100),
+              itemCount: uniqueChats.length,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: REdgeInsets.only(bottom: 12),
+                  child: ChatListTile(
+                    chat: uniqueChats[index],
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      Routes.chatDetail,
+                      arguments: uniqueChats[index].chatId,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
-      body: StreamBuilder<List<ChatModel>>(
-        stream: FirebaseService.getUserChatsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    );
+  }
 
-          final chats = snapshot.data ?? [];
+  Widget _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      floating: true,
+      snap: true,
+      automaticallyImplyLeading: false,
+      expandedHeight: 80.h,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              ColorsManager.gradientStart,
+              ColorsManager.gradientEnd,
+            ],
+          ),
+        ),
+        child: FlexibleSpaceBar(
+          titlePadding: REdgeInsets.only(left: 20, bottom: 16),
+          title: Row(
+            children: [
+              Container(
+                padding: REdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  Icons.chat_bubble_rounded,
+                  color: Colors.white,
+                  size: 20.sp,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Text(
+                AppLocalizations.of(context)!.chat,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20.sp,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-          if (chats.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chat_bubble_outline, size: 64.sp, color: Colors.grey),
-                  SizedBox(height: 16.h),
-                  Text(
-                    AppLocalizations.of(context)!.no_chats_yet,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  SizedBox(height: 8.h),
-                  Text(
-                    'Start a conversation about an item',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14.sp),
-                    textAlign: TextAlign.center,
-                  ),
+  Widget _buildShimmerList() {
+    return ListView.builder(
+      padding: REdgeInsets.all(16),
+      itemCount: 5,
+      itemBuilder: (context, index) => Padding(
+        padding: REdgeInsets.only(bottom: 12),
+        child: _ShimmerChatTile(),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: REdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  ColorsManager.purpleSoft,
+                  ColorsManager.purpleSoft.withOpacity(0.5),
                 ],
               ),
-            );
-          }
-
-          // Remove duplicate chats (same participants)
-          final uniqueChats = _removeDuplicateChats(chats);
-
-          print('Total chats: ${chats.length}');
-          print('Unique chats: ${uniqueChats.length}');
-
-          return ListView.separated(
-            itemCount: uniqueChats.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              return ChatListTile(
-                chat: uniqueChats[index],
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  Routes.chatDetail,
-                  arguments: uniqueChats[index].chatId,
-                ),
-              );
-            },
-          );
-        },
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 56.sp,
+              color: ColorsManager.purple,
+            ),
+          ),
+          SizedBox(height: 20.h),
+          Text(
+            AppLocalizations.of(context)!.no_chats_yet,
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: ColorsManager.black,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'Start a conversation about an item',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: ColorsManager.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -78,16 +167,13 @@ class ChatListScreen extends StatelessWidget {
     final currentUserId = FirebaseService.currentUser!.uid;
 
     for (var chat in chats) {
-      // Get the other user's ID
       final otherUserId = chat.participants.firstWhere(
-            (id) => id != currentUserId,
+        (id) => id != currentUserId,
         orElse: () => '',
       );
 
       if (otherUserId.isEmpty) continue;
 
-      // Use other user ID as key to group chats
-      // Keep only the most recent chat
       if (!uniqueChatsMap.containsKey(otherUserId) ||
           chat.lastMessageTime.isAfter(uniqueChatsMap[otherUserId]!.lastMessageTime)) {
         uniqueChatsMap[otherUserId] = chat;
@@ -99,17 +185,143 @@ class ChatListScreen extends StatelessWidget {
   }
 }
 
-class ChatListTile extends StatelessWidget {
+class _ShimmerChatTile extends StatefulWidget {
+  @override
+  State<_ShimmerChatTile> createState() => _ShimmerChatTileState();
+}
+
+class _ShimmerChatTileState extends State<_ShimmerChatTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+    _animation = Tween<double>(begin: -2, end: 2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          padding: REdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: ColorsManager.shadow,
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _shimmerBox(50.w, 50.h, 25.r),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _shimmerBox(100.w, 14.h, 4.r),
+                    SizedBox(height: 8.h),
+                    _shimmerBox(150.w, 12.h, 4.r),
+                    SizedBox(height: 4.h),
+                    _shimmerBox(80.w, 10.h, 4.r),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _shimmerBox(40.w, 10.h, 4.r),
+                  SizedBox(height: 8.h),
+                  _shimmerBox(20.w, 20.h, 10.r),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _shimmerBox(double width, double height, double radius) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(_animation.value - 1, 0),
+          end: Alignment(_animation.value + 1, 0),
+          colors: const [
+            ColorsManager.shimmerBase,
+            ColorsManager.shimmerHighlight,
+            ColorsManager.shimmerBase,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+      ),
+    );
+  }
+}
+
+class ChatListTile extends StatefulWidget {
   final ChatModel chat;
   final VoidCallback onTap;
 
   const ChatListTile({super.key, required this.chat, required this.onTap});
 
   @override
+  State<ChatListTile> createState() => _ChatListTileState();
+}
+
+class _ChatListTileState extends State<ChatListTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentUserId = FirebaseService.currentUser!.uid;
-    final otherUserId = chat.participants.firstWhere(
-          (id) => id != currentUserId,
+    final otherUserId = widget.chat.participants.firstWhere(
+      (id) => id != currentUserId,
       orElse: () => '',
     );
 
@@ -121,102 +333,236 @@ class ChatListTile extends StatelessWidget {
       future: FirebaseService.getUserById(otherUserId),
       builder: (context, snapshot) {
         final otherUser = snapshot.data;
+        final hasUnread = widget.chat.unreadCount > 0;
 
-        return ListTile(
-          onTap: onTap,
-          leading: CircleAvatar(
-            backgroundColor: ColorsManager.purple.withOpacity(0.1),
-            backgroundImage: otherUser?.photoUrl != null && otherUser!.photoUrl!.isNotEmpty
-                ? NetworkImage(otherUser.photoUrl!)
-                : null,
-            child: otherUser?.photoUrl == null || otherUser!.photoUrl!.isEmpty
-                ? Text(
-              otherUser?.name.isNotEmpty == true
-                  ? otherUser!.name[0].toUpperCase()
-                  : '?',
-              style: TextStyle(
-                color: ColorsManager.purple,
-                fontWeight: FontWeight.bold,
+        return GestureDetector(
+          onTap: widget.onTap,
+          onTapDown: (_) {
+            setState(() => _isPressed = true);
+            _controller.forward();
+          },
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            _controller.reverse();
+          },
+          onTapCancel: () {
+            setState(() => _isPressed = false);
+            _controller.reverse();
+          },
+          child: AnimatedBuilder(
+            animation: _scaleAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: child,
+              );
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: REdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: hasUnread 
+                    ? ColorsManager.purpleSoft.withOpacity(0.5) 
+                    : ColorsManager.white,
+                borderRadius: BorderRadius.circular(16.r),
+                border: hasUnread
+                    ? Border.all(
+                        color: ColorsManager.purple.withOpacity(0.3),
+                        width: 1,
+                      )
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: _isPressed 
+                        ? ColorsManager.shadowDark 
+                        : ColorsManager.shadow,
+                    blurRadius: _isPressed ? 15 : 10,
+                    offset: Offset(0, _isPressed ? 6 : 4),
+                  ),
+                ],
               ),
-            )
-                : null,
-          ),
-          title: Text(
-            otherUser?.name ?? AppLocalizations.of(context)!.loading,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (chat.itemTitle.isNotEmpty)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.shopping_bag_outlined,
-                      size: 12.sp,
-                      color: ColorsManager.purple,
-                    ),
-                    SizedBox(width: 4.w),
-                    Expanded(
-                      child: Text(
-                        chat.itemTitle,
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: ColorsManager.purple,
+              child: Row(
+                children: [
+                  // Avatar with online indicator
+                  Stack(
+                    children: [
+                      Container(
+                        width: 54.w,
+                        height: 54.h,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: otherUser?.photoUrl == null || otherUser!.photoUrl!.isEmpty
+                              ? const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    ColorsManager.gradientStart,
+                                    ColorsManager.gradientEnd,
+                                  ],
+                                )
+                              : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: ColorsManager.purple.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        child: otherUser?.photoUrl != null && otherUser!.photoUrl!.isNotEmpty
+                            ? ClipOval(
+                                child: Image.network(
+                                  otherUser.photoUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(otherUser),
+                                ),
+                              )
+                            : _buildAvatarPlaceholder(otherUser),
                       ),
-                    ),
-                  ],
-                ),
-              SizedBox(height: 2.h),
-              Text(
-                chat.lastMessage.isEmpty
-                    ? AppLocalizations.of(context)!.start_the_conversation
-                    : chat.lastMessage,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 13.sp,
-                ),
-              ),
-            ],
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _formatTime(chat.lastMessageTime),
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: Colors.grey,
-                ),
-              ),
-              if (chat.unreadCount > 0)
-                Container(
-                  margin: REdgeInsets.only(top: 4),
-                  padding: REdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: ColorsManager.purple,
-                    borderRadius: BorderRadius.circular(10.r),
+                    ],
                   ),
-                  child: Text(
-                    chat.unreadCount > 99 ? '99+' : chat.unreadCount.toString(),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.bold,
+                  SizedBox(width: 14.w),
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                otherUser?.name ?? AppLocalizations.of(context)!.loading,
+                                style: TextStyle(
+                                  fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w600,
+                                  fontSize: 15.sp,
+                                  color: ColorsManager.black,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              _formatTime(widget.chat.lastMessageTime),
+                              style: TextStyle(
+                                fontSize: 11.sp,
+                                color: hasUnread ? ColorsManager.purple : ColorsManager.grey,
+                                fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (widget.chat.itemTitle.isNotEmpty) ...[
+                          SizedBox(height: 4.h),
+                          Container(
+                            padding: REdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  ColorsManager.gradientStart,
+                                  ColorsManager.gradientEnd,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.swap_horiz_rounded,
+                                  size: 10.sp,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 4.w),
+                                Flexible(
+                                  child: Text(
+                                    widget.chat.itemTitle,
+                                    style: TextStyle(
+                                      fontSize: 10.sp,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        SizedBox(height: 6.h),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.chat.lastMessage.isEmpty
+                                    ? AppLocalizations.of(context)!.start_the_conversation
+                                    : widget.chat.lastMessage,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: hasUnread 
+                                      ? ColorsManager.black.withOpacity(0.8) 
+                                      : ColorsManager.grey,
+                                  fontSize: 13.sp,
+                                  fontWeight: hasUnread ? FontWeight.w500 : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                            if (hasUnread)
+                              Container(
+                                margin: REdgeInsets.only(left: 8),
+                                padding: REdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      ColorsManager.gradientStart,
+                                      ColorsManager.gradientEnd,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: ColorsManager.purple.withOpacity(0.3),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  widget.chat.unreadCount > 99 
+                                      ? '99+' 
+                                      : widget.chat.unreadCount.toString(),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11.sp,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
-          isThreeLine: true,
         );
       },
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(UserModel? user) {
+    return Center(
+      child: Text(
+        user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : '?',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 20.sp,
+        ),
+      ),
     );
   }
 
