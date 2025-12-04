@@ -1,7 +1,3 @@
-// ============================================
-// FILE: lib/features/chat/chat_list_screen.dart (UPDATED)
-// ============================================
-
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/firebase/firebase_service.dart';
@@ -199,8 +195,7 @@ class ChatListTile extends StatelessWidget {
                   color: Colors.grey,
                 ),
               ),
-              if (chat.lastSenderId.isNotEmpty &&
-                  chat.lastSenderId != currentUserId)
+              if (chat.unreadCount > 0)
                 Container(
                   margin: REdgeInsets.only(top: 4),
                   padding: REdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -209,7 +204,7 @@ class ChatListTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10.r),
                   ),
                   child: Text(
-                    '1',
+                    chat.unreadCount > 99 ? '99+' : chat.unreadCount.toString(),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 10.sp,

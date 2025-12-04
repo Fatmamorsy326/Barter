@@ -193,13 +193,14 @@ class _RegisterState extends State<Register> {
 
     try {
       // Create account with name included in request
-      await FirebaseService.register(
-        RegisterRequest(
-          name: nameController.text.trim(),
-          email: emailController.text.trim(),
-          password: passwordController.text,
-        ),
-      );
+      // await FirebaseService.register(
+      //   RegisterRequest(
+      //     name: nameController.text.trim(),
+      //     email: emailController.text.trim(),
+      //     password: passwordController.text,
+      //   ),
+      // );
+      await FirebaseService.signUp(emailController.text.trim(),passwordController.text );
 
       // Hide loading
       if (mounted) UiUtils.hideDialog(context);

@@ -1,81 +1,54 @@
-// ============================================
-// FILE: lib/firebase/firebase_service.dart
-// ============================================
+import 'dart:io';
 
 import 'package:barter/model/chat_model.dart';
 import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/item_model.dart';
-import 'package:barter/model/login_request.dart';
-import 'package:barter/model/register_request.dart';
 import 'package:barter/model/user_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:io';
 
 class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // ==================== AUTH ====================
-
   static User? get currentUser => _auth.currentUser;
 
-  static Stream<User?> get authStateChanges => _auth.authStateChanges();
+  // ==================== AUTH ====================
 
-  // Register - simplified and robust
-  static Future<UserCredential> register(RegisterRequest request) async {
-    // Step 1: Create auth account
+  static Future<UserCredential> signUp(String email, String password) async {
     final credential = await _auth.createUserWithEmailAndPassword(
-      email: request.email,
-      password: request.password,
+      email: email,
+      password: password,
     );
-
-    // Step 2: Try to update display name (don't fail if this fails)
-    try {
-      await credential.user?.updateDisplayName(request.name);
-    } catch (e) {
-      print('Warning: Could not update display name: $e');
-    }
-
-    // Step 3: Try to create user document (don't fail if this fails)
-    try {
-      await _createUserDocument(credential.user!, request.name);
-    } catch (e) {
-      print('Warning: Could not create user document: $e');
-    }
-
+    await _createUserDocument(credential.user!, 'User');
     return credential;
   }
 
   static Future<void> _createUserDocument(User user, String name) async {
-    final userDoc = _firestore.collection('users').doc(user.uid);
-
     final userModel = UserModel(
       uid: user.uid,
-      name: name,
       email: user.email ?? '',
+      name: name,
       createdAt: DateTime.now(),
     );
 
-    await userDoc.set(userModel.toJson());
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(userModel.toJson());
   }
 
-  // Login - simplified and robust
-  static Future<UserCredential> login(LoginRequest request) async {
+  static Future<UserCredential> signIn(String email, String password) async {
     final credential = await _auth.signInWithEmailAndPassword(
-      email: request.email,
-      password: request.password,
+      email: email,
+      password: password,
     );
-
-    // Try to ensure user document exists (don't fail login if this fails)
-    try {
-      await ensureUserDocument();
-    } catch (e) {
-      print('Warning: Could not ensure user document: $e');
-    }
-
+    
+    // Ensure user document exists
+    await ensureUserDocument();
+    
     return credential;
   }
 
@@ -218,10 +191,6 @@ class FirebaseService {
 
   // ==================== CHAT ====================
 
-  // ============================================
-// REPLACE createOrGetChat in firebase_service.dart
-// ============================================
-
   static Future<String> createOrGetChat(
       String otherUserId,
       String itemId,
@@ -298,6 +267,11 @@ class FirebaseService {
       final chats = snapshot.docs.map((doc) {
         final data = doc.data();
         data['chatId'] = doc.id;
+        
+        // Extract unread count for current user
+        final unreadCounts = Map<String, dynamic>.from(data['unreadCounts'] ?? {});
+        data['unreadCount'] = unreadCounts[userId] ?? 0;
+        
         return ChatModel.fromJson(data);
       }).toList();
 
@@ -313,8 +287,10 @@ class FirebaseService {
 
   static Future<void> sendMessage(String chatId, String content) async
   {
+    final currentUserId = currentUser!.uid;
+    
     final messageData = {
-      'senderId': currentUser!.uid,
+      'senderId': currentUserId,
       'content': content,
       'timestamp': DateTime.now().toIso8601String(),
       'isRead': false,
@@ -326,11 +302,28 @@ class FirebaseService {
         .collection('messages')
         .add(messageData);
 
-    await _firestore.collection('chats').doc(chatId).update({
+    // Get the chat document to find the other participant
+    final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+    final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+    
+    // Find the other user ID
+    final otherUserId = participants.firstWhere(
+      (id) => id != currentUserId, 
+      orElse: () => '',
+    );
+
+    final updates = <String, dynamic>{
       'lastMessage': content,
       'lastMessageTime': DateTime.now().toIso8601String(),
-      'lastSenderId': currentUser!.uid,
-    });
+      'lastSenderId': currentUserId,
+    };
+
+    // Increment unread count for the other user
+    if (otherUserId.isNotEmpty) {
+      updates['unreadCounts.$otherUserId'] = FieldValue.increment(1);
+    }
+
+    await _firestore.collection('chats').doc(chatId).update(updates);
   }
 
   static Stream<List<MessageModel>> getMessagesStream(String chatId) {
@@ -352,27 +345,16 @@ class FirebaseService {
     });
   }
 
-  // ============================================
-// ADD THIS METHOD to firebase_service.dart in the CHAT section
-// ============================================
-
-  /// Mark chat as read by updating lastSenderId to current user
-  /// This removes the unread badge
+  /// Mark chat as read by resetting unread count for current user
   static Future<void> markChatAsRead(String chatId, String userId) async {
     try {
       await _firestore.collection('chats').doc(chatId).update({
-        'lastSenderId': userId,
+        'unreadCounts.$userId': 0,
       });
     } catch (e) {
       print('Error marking chat as read: $e');
     }
   }
-
-// ============================================
-// ALTERNATIVE: More sophisticated approach with unread count
-// Add this if you want to track exact unread message count
-// ============================================
-  // ============================================
 
   /// Mark all messages as read in a chat
   static Future<void> markMessagesAsRead(String chatId, String userId) async {
@@ -589,17 +571,6 @@ class FirebaseService {
       rethrow;
     }
   }
-
-  // ============================================
-// FILE: lib/firebase/firebase_service.dart (FIXED EXCHANGE METHODS)
-// ============================================
-
-  // ==================== EXCHANGES (FIXED) ====================
-
-  /// Create a new exchange proposal
-  // ============================================
-// FILE: lib/firebase/firebase_service.dart (FIXED EXCHANGE METHODS)
-// ============================================
 
   // ==================== EXCHANGES (FIXED) ====================
 
@@ -834,7 +805,7 @@ class FirebaseService {
       }).toList();
 
       return uniqueDocs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         data['id'] = doc.id;
         return ExchangeModel.fromJson(data);
       }).toList();
@@ -889,4 +860,5 @@ class FirebaseService {
       print('Error in getPendingExchangesStream: $e');
       return <ExchangeModel>[];
     });
-  }}
+  }
+}

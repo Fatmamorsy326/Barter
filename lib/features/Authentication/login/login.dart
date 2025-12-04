@@ -225,12 +225,13 @@ class _LoginState extends State<Login> {
 
     try {
       // Attempt login
-      await FirebaseService.login(
-        LoginRequest(
-          email: emailController.text.trim(),
-          password: passwordController.text,
-        ),
-      );
+      // await FirebaseService.login(
+      //   LoginRequest(
+      //     email: emailController.text.trim(),
+      //     password: passwordController.text,
+      //   ),
+      // );
+      await FirebaseService.signIn( emailController.text.trim(),passwordController.text,);
 
       // Hide loading
       if (mounted) UiUtils.hideDialog(context);
