@@ -1,7 +1,3 @@
-// ============================================
-// FILE: lib/main.dart
-// ============================================
-
 import 'package:barter/configration/theme/theme_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/routes_manager/routes_manager.dart';
@@ -63,7 +59,7 @@ class BarterApp extends StatelessWidget {
                 ],
 
                 // Routes
-                initialRoute: _getInitialRoute(),
+                initialRoute: Routes.splash,
                 onGenerateRoute: RoutesManager.router,
               );
             },
@@ -71,10 +67,5 @@ class BarterApp extends StatelessWidget {
         },
       ),
     );
-  }
-
-  String _getInitialRoute() {
-    final user = FirebaseService.currentUser;
-    return user != null ? Routes.mainLayout : Routes.login;
   }
 }
