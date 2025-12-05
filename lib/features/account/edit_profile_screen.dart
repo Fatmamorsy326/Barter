@@ -1,7 +1,3 @@
-// ============================================
-// FILE: lib/features/account/edit_profile_screen.dart
-// ============================================
-
 import 'dart:io';
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/ui_utils.dart';
@@ -51,7 +47,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       UserModel? user = await FirebaseService.getUserById(currentUser.uid);
 
-      // If no Firestore document, create from Auth data
       if (user == null) {
         user = UserModel(
           uid: currentUser.uid,
@@ -73,7 +68,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       print('Error loading user: $e');
 
-      // Fallback to Auth data
       final currentUser = FirebaseService.currentUser;
       if (currentUser != null) {
         setState(() {
@@ -105,46 +99,96 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.edit_profile),
-      ),
+      backgroundColor: ColorsManager.background,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _user == null
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64.sp, color: Colors.grey),
-            SizedBox(height: 16.h),
-            Text('Failed to load profile'),
-            SizedBox(height: 16.h),
-            ElevatedButton(
-              onPressed: _loadUserData,
-              child: Text(AppLocalizations.of(context)!.try_again),
-            ),
-          ],
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(ColorsManager.purple),
+              ),
+            )
+          : _user == null
+              ? _buildErrorState()
+              : CustomScrollView(
+                  slivers: [
+                    _buildSliverAppBar(),
+                    SliverToBoxAdapter(
+                      child: Form(
+                        key: _formKey,
+                        child: Padding(
+                          padding: REdgeInsets.fromLTRB(16, 16, 16, 100),
+                          child: Column(
+                            children: [
+                              _buildSectionTitle('Personal Information', Icons.person_rounded),
+                              SizedBox(height: 12.h),
+                              _buildFormCard([
+                                _buildNameField(),
+                                _buildDivider(),
+                                _buildEmailField(),
+                              ]),
+                              SizedBox(height: 24.h),
+                              _buildSectionTitle('Contact Details', Icons.contact_phone_rounded),
+                              SizedBox(height: 12.h),
+                              _buildFormCard([
+                                _buildPhoneField(),
+                                _buildDivider(),
+                                _buildLocationField(),
+                              ]),
+                              SizedBox(height: 32.h),
+                              _buildSaveButton(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      floating: true,
+      pinned: true,
+      expandedHeight: 220.h,
+      leading: IconButton(
+        icon: Container(
+          padding: REdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+          child: Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 18.sp),
         ),
-      )
-          : Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: REdgeInsets.all(16),
-          child: Column(
-            children: [
-              _buildPhotoSection(),
-              SizedBox(height: 32.h),
-              _buildNameField(),
-              SizedBox(height: 16.h),
-              _buildEmailField(),
-              SizedBox(height: 16.h),
-              _buildPhoneField(),
-              SizedBox(height: 16.h),
-              _buildLocationField(),
-              SizedBox(height: 32.h),
-              _buildSaveButton(),
-              SizedBox(height: 32.h),
+        onPressed: () => Navigator.pop(context),
+      ),
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              ColorsManager.gradientStart,
+              ColorsManager.gradientEnd,
             ],
+          ),
+        ),
+        child: FlexibleSpaceBar(
+          background: SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(height: 40.h),
+                _buildPhotoSection(),
+                SizedBox(height: 12.h),
+                Text(
+                  'Tap photo to change',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12.sp,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -152,34 +196,51 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildPhotoSection() {
-    return Center(
+    return GestureDetector(
+      onTap: _showPhotoOptions,
       child: Stack(
         children: [
-          CircleAvatar(
-            radius: 60.r,
-            backgroundColor: ColorsManager.purple.withOpacity(0.1),
-            backgroundImage: _getProfileImage(),
-            child: _getProfileImage() == null
-                ? Text(
-              _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : 'U',
-              style: TextStyle(
-                fontSize: 48.sp,
-                color: ColorsManager.purple,
-                fontWeight: FontWeight.bold,
-              ),
-            )
-                : null,
+          Container(
+            width: 110.w,
+            height: 110.h,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: _getProfileWidget(),
+            ),
           ),
           Positioned(
             bottom: 0,
             right: 0,
-            child: CircleAvatar(
-              radius: 20.r,
-              backgroundColor: ColorsManager.purple,
-              child: IconButton(
-                icon: Icon(Icons.camera_alt, size: 20.sp, color: Colors.white),
-                onPressed: _showPhotoOptions,
-                padding: EdgeInsets.zero,
+            child: Container(
+              width: 40.w,
+              height: 40.h,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFFFFF), Color(0xFFF0F0F0)],
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.camera_alt_rounded,
+                size: 20.sp,
+                color: ColorsManager.purple,
               ),
             ),
           ),
@@ -188,65 +249,189 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  ImageProvider? _getProfileImage() {
+  Widget _getProfileWidget() {
     if (_newPhoto != null) {
-      return FileImage(_newPhoto!);
+      return Image.file(_newPhoto!, fit: BoxFit.cover);
     }
     if (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty) {
-      return NetworkImage(_user!.photoUrl!);
+      return Image.network(
+        _user!.photoUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(),
+      );
     }
-    return null;
+    return _buildAvatarPlaceholder();
+  }
+
+  Widget _buildAvatarPlaceholder() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.3),
+            Colors.white.withOpacity(0.1),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : 'U',
+          style: TextStyle(
+            fontSize: 44.sp,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: ColorsManager.purple, size: 20.sp),
+        SizedBox(width: 8.w),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w600,
+            color: ColorsManager.black,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorsManager.white,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+            color: ColorsManager.shadow,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: REdgeInsets.symmetric(horizontal: 16),
+      child: Divider(height: 1, color: ColorsManager.greyUltraLight),
+    );
   }
 
   void _showPhotoOptions() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: REdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: ColorsManager.purple),
-                title: Text(AppLocalizations.of(context)!.camera),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickPhoto(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: ColorsManager.purple),
-                title: Text(AppLocalizations.of(context)!.gallery),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickPhoto(ImageSource.gallery);
-                },
-              ),
-              if (_newPhoto != null ||
-                  (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty))
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: Text(
-                    AppLocalizations.of(context)!.remove_photo,
-                    style: const TextStyle(color: Colors.red),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: ColorsManager.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: REdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: ColorsManager.greyLight,
+                    borderRadius: BorderRadius.circular(2.r),
                   ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    setState(() {
-                      _newPhoto = null;
-                      if (_user != null) {
-                        _user = _user!.copyWith(photoUrl: '');
-                      }
-                    });
-                  },
                 ),
-            ],
+                SizedBox(height: 24.h),
+                Text(
+                  'Update Profile Photo',
+                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 24.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildPhotoOption(
+                      icon: Icons.camera_alt_rounded,
+                      label: AppLocalizations.of(context)!.camera,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickPhoto(ImageSource.camera);
+                      },
+                    ),
+                    _buildPhotoOption(
+                      icon: Icons.photo_library_rounded,
+                      label: AppLocalizations.of(context)!.gallery,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickPhoto(ImageSource.gallery);
+                      },
+                    ),
+                    if (_newPhoto != null ||
+                        (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty))
+                      _buildPhotoOption(
+                        icon: Icons.delete_rounded,
+                        label: AppLocalizations.of(context)!.remove_photo,
+                        color: Colors.red,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          setState(() {
+                            _newPhoto = null;
+                            if (_user != null) {
+                              _user = _user!.copyWith(photoUrl: '');
+                            }
+                          });
+                        },
+                      ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: REdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: (color ?? ColorsManager.purple).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color ?? ColorsManager.purple, size: 28.sp),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: color ?? ColorsManager.black,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -273,81 +458,199 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildNameField() {
-    return TextFormField(
-      controller: _nameController,
-      textCapitalization: TextCapitalization.words,
-      textInputAction: TextInputAction.next,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'Name is required';
-        }
-        if (value.trim().length < 2) {
-          return 'Name must be at least 2 characters';
-        }
-        return null;
-      },
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.name,
-        prefixIcon: const Icon(Icons.person_outline),
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        controller: _nameController,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.next,
+        style: TextStyle(fontSize: 15.sp),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Name is required';
+          }
+          if (value.trim().length < 2) {
+            return 'Name must be at least 2 characters';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.name,
+          prefixIcon: Icon(Icons.person_rounded, color: ColorsManager.purple),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
       ),
     );
   }
 
   Widget _buildEmailField() {
-    return TextFormField(
-      initialValue: _user?.email ?? '',
-      enabled: false,
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.email,
-        prefixIcon: const Icon(Icons.email_outlined),
-        filled: true,
-        fillColor: Colors.grey[100],
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        initialValue: _user?.email ?? '',
+        enabled: false,
+        style: TextStyle(fontSize: 15.sp, color: ColorsManager.grey),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.email,
+          labelStyle: TextStyle(color: ColorsManager.grey),
+          prefixIcon: Icon(Icons.email_rounded, color: ColorsManager.grey),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+          suffixIcon: Container(
+            margin: REdgeInsets.only(right: 8),
+            padding: REdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: ColorsManager.greyUltraLight,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_rounded, size: 12.sp, color: ColorsManager.grey),
+                SizedBox(width: 4.w),
+                Text(
+                  'Verified',
+                  style: TextStyle(fontSize: 11.sp, color: ColorsManager.grey),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      style: TextStyle(color: Colors.grey[600]),
     );
   }
 
   Widget _buildPhoneField() {
-    return TextFormField(
-      controller: _phoneController,
-      keyboardType: TextInputType.phone,
-      textInputAction: TextInputAction.next,
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.phone,
-        prefixIcon: const Icon(Icons.phone_outlined),
-        hintText: '+20 123 456 7890',
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        controller: _phoneController,
+        keyboardType: TextInputType.phone,
+        textInputAction: TextInputAction.next,
+        style: TextStyle(fontSize: 15.sp),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.phone,
+          hintText: '+20 123 456 7890',
+          hintStyle: TextStyle(color: ColorsManager.grey.withOpacity(0.5)),
+          prefixIcon: Icon(Icons.phone_rounded, color: ColorsManager.purple),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
       ),
     );
   }
 
   Widget _buildLocationField() {
-    return TextFormField(
-      controller: _locationController,
-      textCapitalization: TextCapitalization.words,
-      textInputAction: TextInputAction.done,
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.location,
-        prefixIcon: const Icon(Icons.location_on_outlined),
-        hintText: 'Alexandria, Egypt',
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        controller: _locationController,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.done,
+        style: TextStyle(fontSize: 15.sp),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.location,
+          hintText: 'Alexandria, Egypt',
+          hintStyle: TextStyle(color: ColorsManager.grey.withOpacity(0.5)),
+          prefixIcon: Icon(Icons.location_on_rounded, color: ColorsManager.purple),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
       ),
     );
   }
 
   Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _isSaving ? null : _saveProfile,
-        child: _isSaving
-            ? SizedBox(
-          height: 20.h,
-          width: 20.w,
-          child: const CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Colors.white,
+    return GestureDetector(
+      onTap: _isSaving ? null : _saveProfile,
+      child: Container(
+        width: double.infinity,
+        height: 56.h,
+        decoration: BoxDecoration(
+          gradient: _isSaving
+              ? null
+              : const LinearGradient(
+                  colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
+                ),
+          color: _isSaving ? ColorsManager.greyLight : null,
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: _isSaving
+              ? null
+              : [
+                  BoxShadow(
+                    color: ColorsManager.purple.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+        ),
+        child: Center(
+          child: _isSaving
+              ? SizedBox(
+                  height: 24.h,
+                  width: 24.w,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: ColorsManager.purple,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.save_rounded, color: Colors.white, size: 22.sp),
+                    SizedBox(width: 10.w),
+                    Text(
+                      AppLocalizations.of(context)!.save_changes,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: REdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.error_outline_rounded, size: 56.sp, color: Colors.red),
           ),
-        )
-            : Text(AppLocalizations.of(context)!.save_changes),
+          SizedBox(height: 24.h),
+          Text(
+            'Failed to load profile',
+            style: TextStyle(fontSize: 16.sp, color: ColorsManager.grey),
+          ),
+          SizedBox(height: 16.h),
+          GestureDetector(
+            onTap: _loadUserData,
+            child: Container(
+              padding: REdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
+                ),
+                borderRadius: BorderRadius.circular(24.r),
+              ),
+              child: Text(
+                AppLocalizations.of(context)!.try_again,
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -358,23 +661,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isSaving = true);
 
     try {
-      print('Saving profile...');
       String? photoUrl = _user!.photoUrl;
 
-      // Upload new photo if selected
       if (_newPhoto != null) {
-        print('Uploading new profile photo...');
         try {
           photoUrl = await ImageUploadService.uploadImage(_newPhoto!);
-          print('Photo uploaded: $photoUrl');
         } catch (e) {
           print('Failed to upload photo: $e');
           UiUtils.showToastMessage('Failed to upload photo', Colors.orange);
-          // Continue saving other data
         }
       }
 
-      // Create updated user model
       final updatedUser = UserModel(
         uid: _user!.uid,
         name: _nameController.text.trim(),
@@ -389,25 +686,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         createdAt: _user!.createdAt,
       );
 
-      print('Saving to Firestore...');
-
-      // Try to update Firestore
       try {
         await FirebaseService.updateUser(updatedUser);
-        print('Firestore updated');
       } catch (e) {
         print('Firestore update failed, trying to create document: $e');
-        // If update fails, try to create the document
         await FirebaseService.ensureUserDocument();
         await FirebaseService.updateUser(updatedUser);
       }
 
-      // Update Firebase Auth display name
       try {
         await FirebaseService.currentUser?.updateDisplayName(
           _nameController.text.trim(),
         );
-        print('Auth display name updated');
       } catch (e) {
         print('Failed to update display name: $e');
       }
@@ -415,7 +705,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       UiUtils.showToastMessage('Profile updated successfully', Colors.green);
 
       if (mounted) {
-        Navigator.pop(context, true); // Return true to refresh account screen
+        Navigator.pop(context, true);
       }
     } catch (e) {
       print('Error saving profile: $e');

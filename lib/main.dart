@@ -28,11 +28,13 @@ class BarterApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap the entire app with LocaleProvider
-    return ChangeNotifierProvider(
-      create: (_) => LocaleProvider(),
-      child: Consumer<LocaleProvider>(
-        builder: (context, localeProvider, child) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: Consumer2<LocaleProvider, ThemeProvider>(
+        builder: (context, localeProvider, themeProvider, child) {
           return ScreenUtilInit(
             designSize: const Size(375, 812),
             minTextAdapt: true,
@@ -42,10 +44,10 @@ class BarterApp extends StatelessWidget {
                 title: 'Barter',
                 debugShowCheckedModeBanner: false,
 
-                // Theme
+                // Theme - now uses ThemeProvider
                 theme: ThemeManager.lightTheme,
                 darkTheme: ThemeManager.darkTheme,
-                themeMode: ThemeMode.light,
+                themeMode: themeProvider.themeMode,
 
                 // Localization - Uses provider's locale
                 locale: localeProvider.locale,
