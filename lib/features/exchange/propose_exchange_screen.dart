@@ -1,7 +1,3 @@
-// ============================================
-// FILE: lib/features/exchange/propose_exchange_screen.dart
-// ============================================
-
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';
@@ -69,20 +65,20 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
         title: const Text('Propose Exchange'),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(ColorsManager.purpleFor(context))))
           : _myItems.isEmpty
           ? _buildEmptyState()
           : SingleChildScrollView(
-        padding: REdgeInsets.all(16),
+        padding: REdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildExchangePreview(),
-            SizedBox(height: 24.h),
-            _buildItemSelection(),
-            SizedBox(height: 24.h),
-            _buildNotesField(),
             SizedBox(height: 32.h),
+            _buildItemSelection(),
+            SizedBox(height: 32.h),
+            _buildNotesField(),
+            SizedBox(height: 40.h),
             _buildProposeButton(),
             SizedBox(height: 32.h),
           ],
@@ -94,37 +90,50 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: REdgeInsets.all(24),
+        padding: REdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 80.sp,
-              color: Colors.grey,
+            Container(
+              padding: REdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: ColorsManager.purpleFor(context).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.inventory_2_outlined,
+                size: 64.sp,
+                color: ColorsManager.purpleFor(context),
+              ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 24.h),
             Text(
               'No Items Available',
               style: TextStyle(
-                fontSize: 20.sp,
+                fontSize: 22.sp,
                 fontWeight: FontWeight.bold,
+                color: ColorsManager.textFor(context),
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 12.h),
             Text(
               'You need to add items to your inventory before proposing an exchange',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14.sp,
+                color: ColorsManager.textSecondaryFor(context),
+                fontSize: 16.sp,
+                height: 1.5,
               ),
             ),
-            SizedBox(height: 24.h),
+            SizedBox(height: 32.h),
             ElevatedButton.icon(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add_rounded),
               label: const Text('Add Item'),
+              style: ElevatedButton.styleFrom(
+                padding: REdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+              ),
             ),
           ],
         ),
@@ -133,108 +142,143 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
   }
 
   Widget _buildExchangePreview() {
-    return Card(
-      child: Padding(
-        padding: REdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Exchange Preview',
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: REdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Exchange Preview',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+              color: ColorsManager.textFor(context),
             ),
-            SizedBox(height: 16.h),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildItemPreview(
-                    _selectedItem,
-                    'Your Item',
-                    'Select an item to offer',
-                  ),
-                ),
-                Padding(
-                  padding: REdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(
-                    Icons.swap_horiz,
-                    size: 32.sp,
-                    color: ColorsManager.purple,
-                  ),
-                ),
-                Expanded(
-                  child: _buildItemPreview(
-                    widget.requestedItem,
-                    'Their Item',
-                    widget.requestedItem.title,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+        Container(
+          padding: REdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: ColorsManager.cardFor(context),
+            borderRadius: BorderRadius.circular(24.r),
+            boxShadow: [
+              BoxShadow(
+                color: ColorsManager.shadowFor(context),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildItemPreview(
+                  _selectedItem,
+                  'Your Item',
+                  'Select below',
+                ),
+              ),
+              Padding(
+                padding: REdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 1,
+                      height: 40.h,
+                      color: ColorsManager.dividerFor(context),
+                    ),
+                    Padding(
+                      padding: REdgeInsets.symmetric(vertical: 12),
+                      child: Container(
+                        padding: REdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: ColorsManager.purpleFor(context).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.swap_horiz_rounded,
+                          size: 24.sp,
+                          color: ColorsManager.purpleFor(context),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40.h,
+                      color: ColorsManager.dividerFor(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _buildItemPreview(
+                  widget.requestedItem,
+                  'Their Item',
+                  widget.requestedItem.title,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildItemPreview(ItemModel? item, String label, String placeholder) {
     return Column(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.sp,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        SizedBox(height: 8.h),
         Container(
           height: 120.h,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
-              color: item != null ? ColorsManager.purple : Colors.grey.shade300,
-              width: 2,
+              color: item != null ? ColorsManager.purpleFor(context) : ColorsManager.dividerFor(context),
+              width: item != null ? 2 : 1,
             ),
+            color: ColorsManager.backgroundFor(context),
           ),
           child: item != null && item.imageUrls.isNotEmpty
               ? ClipRRect(
-            borderRadius: BorderRadius.circular(10.r),
+            borderRadius: BorderRadius.circular(14.r),
             child: Image.network(
               item.imageUrls.first,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: Colors.grey[200],
-                child: Center(
-                  child: Icon(
-                    Icons.image,
-                    size: 40.sp,
-                    color: Colors.grey,
-                  ),
+              errorBuilder: (_, __, ___) => Center(
+                child: Icon(
+                  Icons.image_not_supported_rounded,
+                  size: 32.sp,
+                  color: ColorsManager.textSecondaryFor(context),
                 ),
               ),
             ),
           )
               : Center(
             child: Icon(
-              Icons.image,
-              size: 40.sp,
-              color: Colors.grey,
+              Icons.add_photo_alternate_rounded,
+              size: 32.sp,
+              color: ColorsManager.textSecondaryFor(context).withOpacity(0.5),
             ),
           ),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 12.h),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.sp,
+            color: ColorsManager.textSecondaryFor(context),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        SizedBox(height: 4.h),
         Text(
           item?.title ?? placeholder,
           maxLines: 2,
           textAlign: TextAlign.center,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 12.sp,
-            fontWeight: item != null ? FontWeight.w600 : FontWeight.normal,
+            fontSize: 13.sp,
+            fontWeight: item != null ? FontWeight.bold : FontWeight.normal,
+            color: item != null ? ColorsManager.textFor(context) : ColorsManager.textSecondaryFor(context),
           ),
         ),
       ],
@@ -245,22 +289,25 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Select Your Item to Offer',
-          style: TextStyle(
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w600,
+        Padding(
+          padding: REdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Select Your Item to Offer',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+              color: ColorsManager.textFor(context),
+            ),
           ),
         ),
-        SizedBox(height: 12.h),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.85,
-            crossAxisSpacing: 12.w,
-            mainAxisSpacing: 12.h,
+            childAspectRatio: 0.8,
+            crossAxisSpacing: 16.w,
+            mainAxisSpacing: 16.h,
           ),
           itemCount: _myItems.length,
           itemBuilder: (context, index) {
@@ -269,65 +316,76 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
 
             return GestureDetector(
               onTap: () => setState(() => _selectedItem = item),
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.r),
+                  color: ColorsManager.cardFor(context),
+                  borderRadius: BorderRadius.circular(20.r),
                   border: Border.all(
-                    color: isSelected ? ColorsManager.purple : Colors.grey.shade300,
-                    width: isSelected ? 3 : 1,
+                    color: isSelected ? ColorsManager.purpleFor(context) : Colors.transparent,
+                    width: 2,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isSelected 
+                          ? ColorsManager.purpleFor(context).withOpacity(0.3)
+                          : ColorsManager.shadowFor(context),
+                      blurRadius: isSelected ? 12 : 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Stack(
+                        fit: StackFit.expand,
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(11.r),
+                              top: Radius.circular(18.r),
                             ),
                             child: item.imageUrls.isNotEmpty
                                 ? Image.network(
                               item.imageUrls.first,
-                              width: double.infinity,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Container(
-                                color: Colors.grey[200],
-                                child: Center(
-                                  child: Icon(
-                                    Icons.image,
-                                    size: 40.sp,
-                                    color: Colors.grey,
-                                  ),
+                                color: ColorsManager.shimmerBaseFor(context),
+                                child: Icon(
+                                  Icons.image_not_supported_rounded,
+                                  color: ColorsManager.textSecondaryFor(context),
                                 ),
                               ),
                             )
                                 : Container(
-                              color: Colors.grey[200],
-                              child: Center(
-                                child: Icon(
-                                  Icons.image,
-                                  size: 40.sp,
-                                  color: Colors.grey,
-                                ),
+                              color: ColorsManager.shimmerBaseFor(context),
+                              child: Icon(
+                                Icons.image_not_supported_rounded,
+                                color: ColorsManager.textSecondaryFor(context),
                               ),
                             ),
                           ),
                           if (isSelected)
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Container(
-                                padding: REdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: ColorsManager.purple,
-                                  shape: BoxShape.circle,
+                            Container(
+                              decoration: BoxDecoration(
+                                color: ColorsManager.purpleFor(context).withOpacity(0.2),
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(18.r),
                                 ),
-                                child: Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 16.sp,
+                              ),
+                              child: Center(
+                                child: Container(
+                                  padding: REdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.check_rounded,
+                                    color: ColorsManager.purpleFor(context),
+                                    size: 20.sp,
+                                  ),
                                 ),
                               ),
                             ),
@@ -335,7 +393,7 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
                       ),
                     ),
                     Padding(
-                      padding: REdgeInsets.all(8),
+                      padding: REdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -344,16 +402,17 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13.sp,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.sp,
+                              color: ColorsManager.textFor(context),
                             ),
                           ),
                           SizedBox(height: 4.h),
                           Text(
                             item.condition.displayName,
                             style: TextStyle(
-                              fontSize: 11.sp,
-                              color: Colors.grey[600],
+                              fontSize: 12.sp,
+                              color: ColorsManager.textSecondaryFor(context),
                             ),
                           ),
                         ],
@@ -370,19 +429,46 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
   }
 
   Widget _buildNotesField() {
-    return TextFormField(
-      controller: _notesController,
-      maxLines: 3,
-      textCapitalization: TextCapitalization.sentences,
-      decoration: InputDecoration(
-        labelText: 'Message (Optional)',
-        hintText: 'Add a note to your exchange proposal...',
-        alignLabelWithHint: true,
-        prefixIcon: const Icon(Icons.message_outlined),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: REdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Message (Optional)',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+              color: ColorsManager.textFor(context),
+            ),
+          ),
         ),
-      ),
+        TextFormField(
+          controller: _notesController,
+          maxLines: 4,
+          textCapitalization: TextCapitalization.sentences,
+          style: TextStyle(color: ColorsManager.textFor(context)),
+          decoration: InputDecoration(
+            hintText: 'Add a note to your exchange proposal...',
+            hintStyle: TextStyle(color: ColorsManager.textSecondaryFor(context).withOpacity(0.5)),
+            filled: true,
+            fillColor: ColorsManager.cardFor(context),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20.r),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20.r),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20.r),
+              borderSide: BorderSide(color: ColorsManager.purpleFor(context), width: 1.5),
+            ),
+            contentPadding: REdgeInsets.all(20),
+          ),
+        ),
+      ],
     );
   }
 
@@ -392,13 +478,19 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
       child: ElevatedButton(
         onPressed: _selectedItem == null ? null : _proposeExchange,
         style: ElevatedButton.styleFrom(
-          padding: REdgeInsets.symmetric(vertical: 14),
+          backgroundColor: ColorsManager.purpleFor(context),
+          foregroundColor: Colors.white,
+          padding: REdgeInsets.symmetric(vertical: 18),
+          elevation: 8,
+          shadowColor: ColorsManager.purpleFor(context).withOpacity(0.4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         ),
         child: Text(
-          'Propose Exchange',
+          'Send Proposal',
           style: TextStyle(
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w600,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
           ),
         ),
       ),
