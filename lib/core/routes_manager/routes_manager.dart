@@ -13,6 +13,7 @@ import 'package:barter/features/account/settings_screen.dart';
 import 'package:barter/features/account/owner_profile_screen.dart';
 import 'package:barter/features/saved_items/saved_items_screen.dart';
 import 'package:barter/features/splash/splash_screen.dart';
+import 'package:barter/features/onboarding/onboarding_screen.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,12 @@ class RoutesManager {
       case Routes.splash:
         return MaterialPageRoute(
           builder: (context) => const SplashScreen(),
+        );
+
+      // Onboarding Route
+      case Routes.onboarding:
+        return MaterialPageRoute(
+          builder: (context) => const OnboardingScreen(),
         );
 
       // Auth Routes
