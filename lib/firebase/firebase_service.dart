@@ -412,11 +412,12 @@ class FirebaseService {
       int total = 0;
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        final lastSenderId = data['lastSenderId'] ?? '';
+        final unreadCounts = Map<String, dynamic>.from(data['unreadCounts'] ?? {});
 
-        // Count as unread if last sender is not the current user
-        if (lastSenderId.isNotEmpty && lastSenderId != userId) {
-          total++;
+        // Read unread count for this user from the map
+        final userUnreadCount = unreadCounts[userId] ?? 0;
+        if (userUnreadCount is int && userUnreadCount > 0) {
+          total += userUnreadCount;
         }
       }
       return total;

@@ -1,7 +1,4 @@
-// ============================================
-// FILE: lib/features/my_listings/my_listings_screen.dart (UPDATED)
-// ============================================
-
+import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';
@@ -23,80 +20,216 @@ class MyListingsScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(AppLocalizations.of(context)!.my_listing),
-      ),
-      body: StreamBuilder<List<ItemModel>>(
-        stream: FirebaseService.getUserItemsStream(userId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      backgroundColor: ColorsManager.background,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          _buildSliverAppBar(context),
+        ],
+        body: StreamBuilder<List<ItemModel>>(
+          stream: FirebaseService.getUserItemsStream(userId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildShimmerList();
+            }
 
-          final items = snapshot.data ?? [];
+            final items = snapshot.data ?? [];
 
-          if (items.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.inventory_2_outlined, size: 64.sp, color: Colors.grey),
-                  SizedBox(height: 16.h),
-                  Text(
-                    AppLocalizations.of(context)!.no_listings_yet,
-                    style: Theme.of(context).textTheme.bodyLarge,
+            if (items.isEmpty) {
+              return _buildEmptyState(context);
+            }
+
+            return ListView.builder(
+              padding: REdgeInsets.fromLTRB(16, 8, 16, 100),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: REdgeInsets.only(bottom: 12),
+                  child: MyListingCard(
+                    item: items[index],
+                    onEdit: () => Navigator.pushNamed(
+                      context,
+                      Routes.editItem,
+                      arguments: items[index],
+                    ),
+                    onDelete: () => _deleteItem(context, items[index]),
+                    onToggleAvailability: () => _toggleAvailability(context, items[index]),
                   ),
-                  SizedBox(height: 16.h),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamed(context, Routes.addItem),
-                    icon: const Icon(Icons.add),
-                    label: Text(AppLocalizations.of(context)!.add_item),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      floating: true,
+      snap: true,
+      automaticallyImplyLeading: false,
+      expandedHeight: 80.h,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              ColorsManager.gradientStart,
+              ColorsManager.gradientEnd,
+            ],
+          ),
+        ),
+        child: FlexibleSpaceBar(
+          titlePadding: REdgeInsets.only(left: 20, bottom: 16),
+          title: Row(
+            children: [
+              Container(
+                padding: REdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  Icons.inventory_2_rounded,
+                  color: Colors.white,
+                  size: 20.sp,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Text(
+                AppLocalizations.of(context)!.my_listing,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20.sp,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerList() {
+    return ListView.builder(
+      padding: REdgeInsets.all(16),
+      itemCount: 4,
+      itemBuilder: (context, index) => Padding(
+        padding: REdgeInsets.only(bottom: 12),
+        child: _ShimmerListingCard(),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: REdgeInsets.all(28),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  ColorsManager.purpleSoft,
+                  ColorsManager.purpleSoft.withOpacity(0.5),
+                ],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.inventory_2_outlined,
+              size: 56.sp,
+              color: ColorsManager.purple,
+            ),
+          ),
+          SizedBox(height: 24.h),
+          Text(
+            AppLocalizations.of(context)!.no_listings_yet,
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: ColorsManager.black,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'Add your first item to start trading',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: ColorsManager.grey,
+            ),
+          ),
+          SizedBox(height: 24.h),
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, Routes.addItem),
+            child: Container(
+              padding: REdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    ColorsManager.gradientStart,
+                    ColorsManager.gradientEnd,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: ColorsManager.purple.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
-            );
-          }
-
-          return ListView.builder(
-            padding: REdgeInsets.all(16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              return MyListingCard(
-                item: items[index],
-                onEdit: () => Navigator.pushNamed(
-                  context,
-                  Routes.editItem,
-                  arguments: items[index],
-                ),
-                onDelete: () => _deleteItem(context, items[index]),
-                onToggleAvailability: () => _toggleAvailability(context, items[index]),
-              );
-            },
-          );
-        },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_rounded, color: Colors.white, size: 20.sp),
+                  SizedBox(width: 8.w),
+                  Text(
+                    AppLocalizations.of(context)!.add_item,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _deleteItem(BuildContext context, ItemModel item) async {
-    // Check if item is in active exchange before allowing delete
     final isInExchange = await _checkIfInExchange(item.id);
 
     if (isInExchange['active'] == true) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
           title: Row(
             children: [
-              Icon(Icons.lock, color: Colors.orange, size: 24.sp),
-              SizedBox(width: 8.w),
+              Container(
+                padding: REdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.lock_rounded, color: Colors.orange, size: 20.sp),
+              ),
+              SizedBox(width: 12.w),
               const Text('Cannot Delete'),
             ],
           ),
           content: const Text(
             'This item is in an active exchange and cannot be deleted.\n\n'
-                'Please complete or cancel the exchange first.',
+            'Please complete or cancel the exchange first.',
           ),
           actions: [
             TextButton(
@@ -108,7 +241,7 @@ class MyListingsScreen extends StatelessWidget {
                 Navigator.pop(ctx);
                 Navigator.pushNamed(context, Routes.exchangesList);
               },
-              child: const Text('View Exchanges'),
+              child: Text('View Exchanges', style: TextStyle(color: ColorsManager.purple)),
             ),
           ],
         ),
@@ -119,6 +252,7 @@ class MyListingsScreen extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         title: Text(AppLocalizations.of(context)!.delete_item),
         content: Text(AppLocalizations.of(context)!.confirm_delete),
         actions: [
@@ -145,7 +279,6 @@ class MyListingsScreen extends StatelessWidget {
   }
 
   Future<void> _toggleAvailability(BuildContext context, ItemModel item) async {
-    // If trying to make item available, check if it's in an exchange
     if (!item.isAvailable) {
       final exchangeStatus = await _checkIfInExchange(item.id);
 
@@ -153,7 +286,7 @@ class MyListingsScreen extends StatelessWidget {
         _showCannotToggleDialog(
           context,
           'This item is in an active exchange and cannot be made available.\n\n'
-              'Please complete or cancel the exchange first.',
+          'Please complete or cancel the exchange first.',
         );
         return;
       }
@@ -162,13 +295,12 @@ class MyListingsScreen extends StatelessWidget {
         _showCannotToggleDialog(
           context,
           'This item has been exchanged and cannot be made available again.\n\n'
-              'You can delete this item or keep it as a record of your past exchange.',
+          'You can delete this item or keep it as a record of your past exchange.',
         );
         return;
       }
     }
 
-    // Proceed with toggle
     try {
       final updated = item.copyWith(isAvailable: !item.isAvailable);
       await FirebaseService.updateItem(updated);
@@ -186,20 +318,13 @@ class MyListingsScreen extends StatelessWidget {
   Future<Map<String, bool>> _checkIfInExchange(String itemId) async {
     try {
       final exchanges = await FirebaseService.getItemExchanges(itemId);
-
       final hasActive = exchanges.any((e) => e.status == ExchangeStatus.accepted);
       final hasCompleted = exchanges.any((e) => e.status == ExchangeStatus.completed);
 
-      return {
-        'active': hasActive,
-        'completed': hasCompleted,
-      };
+      return {'active': hasActive, 'completed': hasCompleted};
     } catch (e) {
       print('Error checking exchanges: $e');
-      return {
-        'active': false,
-        'completed': false,
-      };
+      return {'active': false, 'completed': false};
     }
   }
 
@@ -207,11 +332,19 @@ class MyListingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         title: Row(
           children: [
-            Icon(Icons.lock, color: Colors.orange, size: 24.sp),
-            SizedBox(width: 8.w),
-            const Text('Cannot Change Status'),
+            Container(
+              padding: REdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.lock_rounded, color: Colors.orange, size: 20.sp),
+            ),
+            SizedBox(width: 12.w),
+            const Text('Cannot Change'),
           ],
         ),
         content: Text(message),
@@ -225,7 +358,7 @@ class MyListingsScreen extends StatelessWidget {
               Navigator.pop(ctx);
               Navigator.pushNamed(context, Routes.exchangesList);
             },
-            child: const Text('View Exchanges'),
+            child: Text('View Exchanges', style: TextStyle(color: ColorsManager.purple)),
           ),
         ],
       ),
@@ -233,7 +366,96 @@ class MyListingsScreen extends StatelessWidget {
   }
 }
 
-class MyListingCard extends StatelessWidget {
+class _ShimmerListingCard extends StatefulWidget {
+  @override
+  State<_ShimmerListingCard> createState() => _ShimmerListingCardState();
+}
+
+class _ShimmerListingCardState extends State<_ShimmerListingCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+    _animation = Tween<double>(begin: -2, end: 2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          padding: REdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: ColorsManager.shadow,
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _shimmerBox(80.w, 80.h, 12.r),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _shimmerBox(150.w, 16.h, 4.r),
+                    SizedBox(height: 8.h),
+                    _shimmerBox(80.w, 20.h, 10.r),
+                  ],
+                ),
+              ),
+              _shimmerBox(32.w, 32.h, 16.r),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _shimmerBox(double width, double height, double radius) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(_animation.value - 1, 0),
+          end: Alignment(_animation.value + 1, 0),
+          colors: const [
+            ColorsManager.shimmerBase,
+            ColorsManager.shimmerHighlight,
+            ColorsManager.shimmerBase,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+      ),
+    );
+  }
+}
+
+class MyListingCard extends StatefulWidget {
   final ItemModel item;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -248,148 +470,279 @@ class MyListingCard extends StatelessWidget {
   });
 
   @override
+  State<MyListingCard> createState() => _MyListingCardState();
+}
+
+class _MyListingCardState extends State<MyListingCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: REdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: REdgeInsets.all(12),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8.r),
-              child: item.imageUrls.isNotEmpty
-                  ? Image.network(
-                item.imageUrls.first,
+    return GestureDetector(
+      onTapDown: (_) {
+        setState(() => _isPressed = true);
+        _controller.forward();
+      },
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        _controller.reverse();
+      },
+      onTapCancel: () {
+        setState(() => _isPressed = false);
+        _controller.reverse();
+      },
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: child,
+          );
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: REdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.item.isAvailable ? ColorsManager.white : ColorsManager.greyUltraLight,
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: _isPressed ? ColorsManager.shadowDark : ColorsManager.shadow,
+                blurRadius: _isPressed ? 15 : 10,
+                offset: Offset(0, _isPressed ? 6 : 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // Item image
+              Container(
                 width: 80.w,
                 height: 80.h,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _buildPlaceholder(),
-              )
-                  : _buildPlaceholder(),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ColorsManager.shadow,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      widget.item.imageUrls.isNotEmpty
+                          ? Image.network(
+                              widget.item.imageUrls.first,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                            )
+                          : _buildPlaceholder(),
+                      if (!widget.item.isAvailable)
+                        Container(
+                          color: Colors.black.withOpacity(0.4),
+                          child: Center(
+                            child: Icon(
+                              Icons.visibility_off_rounded,
+                              color: Colors.white,
+                              size: 24.sp,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  SizedBox(height: 4.h),
-                  // Status badge with exchange info
-                  FutureBuilder<List<ExchangeModel>>(
-                    future: FirebaseService.getItemExchanges(item.id),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return _buildStatusBadge(context,item, null);
-                      }
-                      return _buildStatusBadge(context,item, snapshot.data);
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    onEdit();
-                    break;
-                  case 'toggle':
-                    onToggleAvailability();
-                    break;
-                  case 'delete':
-                    onDelete();
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Text(AppLocalizations.of(context)!.edit),
+              SizedBox(width: 14.w),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.item.title,
+                      style: TextStyle(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w600,
+                        color: widget.item.isAvailable ? ColorsManager.black : ColorsManager.grey,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      widget.item.category.displayName,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: ColorsManager.grey,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    FutureBuilder<List<ExchangeModel>>(
+                      future: FirebaseService.getItemExchanges(widget.item.id),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return _buildStatusBadge(context, widget.item, null);
+                        }
+                        return _buildStatusBadge(context, widget.item, snapshot.data);
+                      },
+                    ),
+                  ],
                 ),
-                PopupMenuItem(
-                  value: 'toggle',
-                  child: Text(
-                    item.isAvailable
-                        ? AppLocalizations.of(context)!.mark_unavailable
-                        : AppLocalizations.of(context)!.mark_available,
-                  ),
+              ),
+              // Menu button
+              Container(
+                decoration: BoxDecoration(
+                  color: ColorsManager.greyUltraLight,
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Text(
-                    AppLocalizations.of(context)!.delete,
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                child: PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert_rounded, color: ColorsManager.grey, size: 22.sp),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        widget.onEdit();
+                        break;
+                      case 'toggle':
+                        widget.onToggleAvailability();
+                        break;
+                      case 'delete':
+                        widget.onDelete();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_rounded, size: 18.sp, color: ColorsManager.purple),
+                          SizedBox(width: 10.w),
+                          Text(AppLocalizations.of(context)!.edit),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'toggle',
+                      child: Row(
+                        children: [
+                          Icon(
+                            widget.item.isAvailable ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 18.sp,
+                            color: Colors.orange,
+                          ),
+                          SizedBox(width: 10.w),
+                          Text(
+                            widget.item.isAvailable
+                                ? AppLocalizations.of(context)!.mark_unavailable
+                                : AppLocalizations.of(context)!.mark_available,
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_rounded, size: 18.sp, color: Colors.red),
+                          SizedBox(width: 10.w),
+                          Text(
+                            AppLocalizations.of(context)!.delete,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(BuildContext context,ItemModel item, List<ExchangeModel>? exchanges) {
-    Color bgColor;
-    Color textColor;
+  Widget _buildStatusBadge(BuildContext context, ItemModel item, List<ExchangeModel>? exchanges) {
+    Color startColor;
+    Color endColor;
     String label;
     IconData icon;
 
     if (item.isAvailable) {
-      bgColor = Colors.green.withOpacity(0.1);
-      textColor = Colors.green;
+      startColor = const Color(0xFF4CAF50);
+      endColor = const Color(0xFF66BB6A);
       label = AppLocalizations.of(context)!.available;
-      icon = Icons.check_circle;
+      icon = Icons.check_circle_rounded;
     } else if (exchanges != null) {
       final hasActive = exchanges.any((e) => e.status == ExchangeStatus.accepted);
       final hasCompleted = exchanges.any((e) => e.status == ExchangeStatus.completed);
 
       if (hasActive) {
-        bgColor = Colors.orange.withOpacity(0.1);
-        textColor = Colors.orange;
+        startColor = Colors.orange;
+        endColor = Colors.orangeAccent;
         label = 'In Exchange';
-        icon = Icons.swap_horiz;
+        icon = Icons.swap_horiz_rounded;
       } else if (hasCompleted) {
-        bgColor = Colors.blue.withOpacity(0.1);
-        textColor = Colors.blue;
+        startColor = const Color(0xFF2196F3);
+        endColor = const Color(0xFF42A5F5);
         label = 'Exchanged';
-        icon = Icons.check_circle;
+        icon = Icons.check_circle_rounded;
       } else {
-        bgColor = Colors.red.withOpacity(0.1);
-        textColor = Colors.red;
+        startColor = Colors.grey;
+        endColor = Colors.grey.shade400;
         label = AppLocalizations.of(context)!.unavailable;
-        icon = Icons.visibility_off;
+        icon = Icons.visibility_off_rounded;
       }
     } else {
-      bgColor = Colors.red.withOpacity(0.1);
-      textColor = Colors.red;
+      startColor = Colors.grey;
+      endColor = Colors.grey.shade400;
       label = AppLocalizations.of(context)!.unavailable;
-      icon = Icons.visibility_off;
+      icon = Icons.visibility_off_rounded;
     }
 
     return Container(
-      padding: REdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: REdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4.r),
+        gradient: LinearGradient(colors: [startColor, endColor]),
+        borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12.sp, color: textColor),
+          Icon(icon, size: 12.sp, color: Colors.white),
           SizedBox(width: 4.w),
           Text(
             label,
             style: TextStyle(
-              fontSize: 12.sp,
-              color: textColor,
-              fontWeight: FontWeight.w500,
+              fontSize: 11.sp,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -399,10 +752,17 @@ class MyListingCard extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      width: 80.w,
-      height: 80.h,
-      color: Colors.grey[200],
-      child: const Icon(Icons.image, color: Colors.grey),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            ColorsManager.greyLight,
+            ColorsManager.greyUltraLight,
+          ],
+        ),
+      ),
+      child: Icon(Icons.image_rounded, color: ColorsManager.grey, size: 32.sp),
     );
   }
 }
