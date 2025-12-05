@@ -603,7 +603,35 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
 
   Widget _buildBottomActions(bool isProposer, bool isPending, bool isAccepted) {
     if (!isPending && !isAccepted) return const SizedBox.shrink();
-    if (isPending && isProposer) return const SizedBox.shrink();
+    if (isPending && isProposer) {
+      return Container(
+        padding: REdgeInsets.fromLTRB(20, 20, 20, 34),
+        decoration: BoxDecoration(
+          color: ColorsManager.cardFor(context),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32.r)),
+          boxShadow: [
+            BoxShadow(
+              color: ColorsManager.shadowFor(context),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: _cancelPendingRequest,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: BorderSide(color: Colors.red.withOpacity(0.5), width: 1.5),
+              padding: REdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+            ),
+            child: const Text('Cancel Request'),
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: REdgeInsets.fromLTRB(20, 20, 20, 34),
@@ -792,7 +820,7 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
         await FirebaseService.cancelExchange(widget.exchangeId);
         UiUtils.hideDialog(context);
         Navigator.pop(context);
-        UiUtils.showToastMessage('Request cancelled', ColorsManager.grey);
+        UiUtils.showToastMessage('Request cancelled', Colors.orange);
       } catch (e) {
         UiUtils.hideDialog(context);
         UiUtils.showToastMessage('Failed to cancel request', Colors.red);
