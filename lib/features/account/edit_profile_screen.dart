@@ -99,7 +99,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: _isLoading
           ? Center(
               child: CircularProgressIndicator(
@@ -298,7 +298,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           style: TextStyle(
             fontSize: 16.sp,
             fontWeight: FontWeight.w600,
-            color: ColorsManager.black,
+            color: ColorsManager.textFor(context),
           ),
         ),
       ],
@@ -308,11 +308,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildFormCard(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: ColorsManager.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: ColorsManager.shadow,
+            color: ColorsManager.shadowFor(context),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -325,7 +325,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildDivider() {
     return Padding(
       padding: REdgeInsets.symmetric(horizontal: 16),
-      child: Divider(height: 1, color: ColorsManager.greyUltraLight),
+      child: Divider(height: 1, color: ColorsManager.dividerFor(context)),
     );
   }
 
@@ -335,7 +335,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         decoration: BoxDecoration(
-          color: ColorsManager.white,
+          color: ColorsManager.cardFor(context),
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
         ),
         child: SafeArea(
@@ -427,7 +427,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             label,
             style: TextStyle(
               fontSize: 12.sp,
-              color: color ?? ColorsManager.black,
+              color: color ?? ColorsManager.textFor(context),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -490,7 +490,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: TextFormField(
         initialValue: _user?.email ?? '',
         enabled: false,
-        style: TextStyle(fontSize: 15.sp, color: ColorsManager.grey),
+        style: TextStyle(fontSize: 15.sp, color: ColorsManager.textSecondaryFor(context)),
         decoration: InputDecoration(
           labelText: AppLocalizations.of(context)!.email,
           labelStyle: TextStyle(color: ColorsManager.grey),
@@ -501,7 +501,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             margin: REdgeInsets.only(right: 8),
             padding: REdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: ColorsManager.greyUltraLight,
+              color: ColorsManager.dividerFor(context),
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Row(

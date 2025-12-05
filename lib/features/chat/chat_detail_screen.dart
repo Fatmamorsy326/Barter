@@ -70,7 +70,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: Column(
         children: [
           _buildAppBar(context),

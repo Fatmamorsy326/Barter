@@ -49,7 +49,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -65,11 +65,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     return Container(
       margin: REdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
-        color: ColorsManager.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(28.r),
         boxShadow: [
           BoxShadow(
-            color: ColorsManager.shadowDark,
+            color: ColorsManager.shadowFor(context),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: 2,
@@ -141,7 +141,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             UnreadMessagesBadge(
               child: Icon(
                 isSelected ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
-                color: isSelected ? Colors.white : ColorsManager.grey,
+                color: isSelected ? Colors.white : ColorsManager.textSecondaryFor(context),
                 size: 22.sp,
               ),
             ),
@@ -195,7 +195,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           children: [
             Icon(
               isSelected ? icon : outlinedIcon,
-              color: isSelected ? Colors.white : ColorsManager.grey,
+              color: isSelected ? Colors.white : ColorsManager.textSecondaryFor(context),
               size: 22.sp,
             ),
             if (isSelected) ...[

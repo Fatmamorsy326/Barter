@@ -47,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           _buildSliverAppBar(context),
@@ -67,20 +67,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildSliverAppBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return SliverAppBar(
       floating: true,
       snap: true,
       automaticallyImplyLeading: false,
       expandedHeight: 80.h,
       flexibleSpace: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              ColorsManager.gradientStart,
-              ColorsManager.gradientEnd,
-            ],
+            colors: isDark 
+                ? [ColorsManager.darkGradientStart, ColorsManager.darkGradientEnd]
+                : [ColorsManager.gradientStart, ColorsManager.gradientEnd],
           ),
         ),
         child: FlexibleSpaceBar(
@@ -127,11 +128,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Container(
       margin: REdgeInsets.fromLTRB(16, 16, 16, 8),
       decoration: BoxDecoration(
-        color: ColorsManager.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: ColorsManager.shadow,
+            color: ColorsManager.shadowFor(context),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -142,11 +143,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         style: TextStyle(
           fontSize: 15.sp,
           fontWeight: FontWeight.w500,
+          color: ColorsManager.textFor(context),
         ),
         decoration: InputDecoration(
           hintText: AppLocalizations.of(context)!.search_items,
           hintStyle: TextStyle(
-            color: ColorsManager.greyLight,
+            color: ColorsManager.textSecondaryFor(context),
             fontWeight: FontWeight.w400,
           ),
           prefixIcon: Container(
@@ -154,11 +156,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Container(
               padding: REdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    ColorsManager.gradientStart,
-                    ColorsManager.gradientEnd,
-                  ],
+                gradient: LinearGradient(
+                  colors: ColorsManager.gradientFor(context),
                 ),
                 borderRadius: BorderRadius.circular(10.r),
               ),
@@ -230,19 +229,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           padding: REdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             gradient: isSelected
-                ? const LinearGradient(
-                    colors: [
-                      ColorsManager.gradientStart,
-                      ColorsManager.gradientEnd,
-                    ],
+                ? LinearGradient(
+                    colors: ColorsManager.gradientFor(context),
                   )
                 : null,
-            color: isSelected ? null : ColorsManager.white,
+            color: isSelected ? null : ColorsManager.cardFor(context),
             borderRadius: BorderRadius.circular(25.r),
             border: isSelected
                 ? null
                 : Border.all(
-                    color: ColorsManager.greyLight.withOpacity(0.5),
+                    color: ColorsManager.dividerFor(context),
                     width: 1,
                   ),
             boxShadow: isSelected
@@ -261,13 +257,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Icon(
                 chipIcon,
                 size: 16.sp,
-                color: isSelected ? Colors.white : ColorsManager.purple,
+                color: isSelected ? Colors.white : ColorsManager.purpleFor(context),
               ),
               SizedBox(width: 6.w),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : ColorsManager.grey,
+                  color: isSelected ? Colors.white : ColorsManager.textSecondaryFor(context),
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   fontSize: 13.sp,
                 ),
@@ -301,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         return RefreshIndicator(
           onRefresh: () async {},
           color: ColorsManager.purple,
-          backgroundColor: Colors.white,
+          backgroundColor: ColorsManager.cardFor(context),
           child: GridView.builder(
             padding: REdgeInsets.all(16),
             physics: const BouncingScrollPhysics(),
@@ -349,8 +345,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ColorsManager.purpleSoft,
-                  ColorsManager.purpleSoft.withOpacity(0.5),
+                  ColorsManager.purpleSoftFor(context),
+                  ColorsManager.purpleSoftFor(context).withOpacity(0.5),
                 ],
               ),
               shape: BoxShape.circle,
@@ -358,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Icon(
               Icons.inventory_2_rounded,
               size: 56.sp,
-              color: ColorsManager.purple,
+              color: ColorsManager.purpleFor(context),
             ),
           ),
           SizedBox(height: 20.h),
@@ -367,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.w600,
-              color: ColorsManager.black,
+              color: ColorsManager.textFor(context),
             ),
           ),
           SizedBox(height: 8.h),
@@ -375,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             'Try adjusting your search or filters',
             style: TextStyle(
               fontSize: 14.sp,
-              color: ColorsManager.grey,
+              color: ColorsManager.textSecondaryFor(context),
             ),
           ),
         ],
@@ -406,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.w600,
-              color: ColorsManager.black,
+              color: ColorsManager.textFor(context),
             ),
           ),
           SizedBox(height: 4.h),
@@ -414,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             error,
             style: TextStyle(
               fontSize: 12.sp,
-              color: ColorsManager.grey,
+              color: ColorsManager.textSecondaryFor(context),
             ),
             textAlign: TextAlign.center,
           ),

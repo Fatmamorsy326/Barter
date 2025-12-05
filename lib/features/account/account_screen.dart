@@ -101,7 +101,7 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: _buildBody(),
     );
   }
@@ -355,11 +355,11 @@ class _AccountScreenState extends State<AccountScreen> {
     return Container(
       padding: REdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorsManager.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(20.r),
         boxShadow: [
           BoxShadow(
-            color: ColorsManager.shadow,
+            color: ColorsManager.shadowFor(context),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -433,7 +433,7 @@ class _AccountScreenState extends State<AccountScreen> {
           style: TextStyle(
             fontSize: 22.sp,
             fontWeight: FontWeight.bold,
-            color: ColorsManager.black,
+            color: ColorsManager.textFor(context),
           ),
         ),
         SizedBox(height: 4.h),
@@ -453,7 +453,7 @@ class _AccountScreenState extends State<AccountScreen> {
     return Container(
       height: 60.h,
       width: 1,
-      color: ColorsManager.greyLight,
+      color: ColorsManager.dividerFor(context),
     );
   }
 
@@ -516,11 +516,11 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget _buildMenuCard({required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
-        color: ColorsManager.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: ColorsManager.shadow,
+            color: ColorsManager.shadowFor(context),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -569,7 +569,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       style: TextStyle(
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600,
-                        color: textColor ?? ColorsManager.black,
+                        color: textColor ?? ColorsManager.textFor(context),
                       ),
                     ),
                     SizedBox(height: 2.h),
@@ -598,7 +598,7 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget _buildMenuDivider() {
     return Padding(
       padding: REdgeInsets.symmetric(horizontal: 16),
-      child: Divider(height: 1, color: ColorsManager.greyUltraLight),
+      child: Divider(height: 1, color: ColorsManager.dividerFor(context)),
     );
   }
 
@@ -690,7 +690,7 @@ class _AccountScreenState extends State<AccountScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         decoration: BoxDecoration(
-          color: ColorsManager.white,
+          color: ColorsManager.cardFor(context),
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
         ),
         child: SafeArea(
@@ -703,7 +703,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   width: 40.w,
                   height: 4.h,
                   decoration: BoxDecoration(
-                    color: ColorsManager.greyLight,
+                    color: ColorsManager.dividerFor(context),
                     borderRadius: BorderRadius.circular(2.r),
                   ),
                 ),
@@ -713,6 +713,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   style: TextStyle(
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
+                    color: ColorsManager.textFor(context),
                   ),
                 ),
                 SizedBox(height: 24.h),
@@ -779,7 +780,7 @@ class _AccountScreenState extends State<AccountScreen> {
             label,
             style: TextStyle(
               fontSize: 13.sp,
-              color: color ?? ColorsManager.black,
+              color: color ?? ColorsManager.textFor(context),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -794,19 +795,20 @@ class _AccountScreenState extends State<AccountScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsManager.cardFor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Row(
           children: [
             Container(
               padding: REdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: ColorsManager.purpleSoft,
+                color: ColorsManager.purpleSoftFor(context),
                 borderRadius: BorderRadius.circular(10.r),
               ),
-              child: Icon(Icons.help_outline_rounded, color: ColorsManager.purple, size: 20.sp),
+              child: Icon(Icons.help_outline_rounded, color: ColorsManager.purpleFor(context), size: 20.sp),
             ),
             SizedBox(width: 12.w),
-            Text(AppLocalizations.of(context)!.help_support),
+            Text(AppLocalizations.of(context)!.help_support, style: TextStyle(color: ColorsManager.textFor(context))),
           ],
         ),
         content: SingleChildScrollView(
@@ -816,7 +818,7 @@ class _AccountScreenState extends State<AccountScreen> {
             children: [
               Text(
                 'Need Help?',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp, color: ColorsManager.textFor(context)),
               ),
               SizedBox(height: 16.h),
               _buildHelpItem(Icons.email_rounded, 'Email Support', 'support@barterapp.com'),
@@ -830,7 +832,7 @@ class _AccountScreenState extends State<AccountScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Close', style: TextStyle(color: ColorsManager.purple)),
+            child: Text('Close', style: TextStyle(color: ColorsManager.purpleFor(context))),
           ),
         ],
       ),
@@ -841,19 +843,19 @@ class _AccountScreenState extends State<AccountScreen> {
     return Container(
       padding: REdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ColorsManager.greyUltraLight,
+        color: ColorsManager.backgroundFor(context),
         borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20.sp, color: ColorsManager.purple),
+          Icon(icon, size: 20.sp, color: ColorsManager.purpleFor(context)),
           SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 11.sp, color: ColorsManager.grey)),
-                Text(value, style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500)),
+                Text(label, style: TextStyle(fontSize: 11.sp, color: ColorsManager.textSecondaryFor(context))),
+                Text(value, style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500, color: ColorsManager.textFor(context))),
               ],
             ),
           ),
@@ -863,9 +865,12 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   void _showAboutDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsManager.cardFor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         content: SingleChildScrollView(
           child: Column(
@@ -874,8 +879,10 @@ class _AccountScreenState extends State<AccountScreen> {
               Container(
                 padding: REdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
+                  gradient: LinearGradient(
+                    colors: isDark 
+                        ? [ColorsManager.darkGradientStart, ColorsManager.darkGradientEnd]
+                        : [ColorsManager.gradientStart, ColorsManager.gradientEnd],
                   ),
                   shape: BoxShape.circle,
                 ),
@@ -887,20 +894,20 @@ class _AccountScreenState extends State<AccountScreen> {
                 style: TextStyle(
                   fontSize: 28.sp,
                   fontWeight: FontWeight.bold,
-                  color: ColorsManager.purple,
+                  color: ColorsManager.purpleFor(context),
                 ),
               ),
-              Text('Version 1.0.0', style: TextStyle(color: ColorsManager.grey)),
+              Text('Version 1.0.0', style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
               SizedBox(height: 16.h),
               Text(
                 'A peer-to-peer exchange platform that allows users to trade items without money.',
-                style: TextStyle(height: 1.5, color: ColorsManager.grey),
+                style: TextStyle(height: 1.5, color: ColorsManager.textSecondaryFor(context)),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 16.h),
               Text(
                 '© 2024 Barter. All rights reserved.',
-                style: TextStyle(fontSize: 11.sp, color: ColorsManager.grey),
+                style: TextStyle(fontSize: 11.sp, color: ColorsManager.textSecondaryFor(context)),
               ),
             ],
           ),
@@ -908,7 +915,7 @@ class _AccountScreenState extends State<AccountScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Close', style: TextStyle(color: ColorsManager.purple)),
+            child: Text('Close', style: TextStyle(color: ColorsManager.purpleFor(context))),
           ),
         ],
       ),
@@ -919,13 +926,14 @@ class _AccountScreenState extends State<AccountScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsManager.cardFor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        title: Text(AppLocalizations.of(context)!.logout),
-        content: Text(AppLocalizations.of(context)!.confirm_logout),
+        title: Text(AppLocalizations.of(context)!.logout, style: TextStyle(color: ColorsManager.textFor(context))),
+        content: Text(AppLocalizations.of(context)!.confirm_logout, style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppLocalizations.of(context)!.cancel),
+            child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -1007,13 +1015,14 @@ class _AccountScreenState extends State<AccountScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsManager.cardFor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        title: const Text('Remove Photo'),
-        content: const Text('Are you sure you want to remove your profile photo?'),
+        title: Text('Remove Photo', style: TextStyle(color: ColorsManager.textFor(context))),
+        content: Text('Are you sure you want to remove your profile photo?', style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),

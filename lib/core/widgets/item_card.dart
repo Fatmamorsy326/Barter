@@ -69,13 +69,13 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            color: ColorsManager.cardBackground,
+            color: ColorsManager.cardFor(context),
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
                 color: _isPressed 
-                    ? ColorsManager.shadowDark 
-                    : ColorsManager.shadow,
+                    ? ColorsManager.shadowFor(context) 
+                    : ColorsManager.shadowFor(context),
                 blurRadius: _isPressed ? 20 : 12,
                 offset: Offset(0, _isPressed ? 8 : 4),
                 spreadRadius: _isPressed ? 2 : 0,
@@ -173,7 +173,7 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14.sp,
-                            color: ColorsManager.black,
+                            color: ColorsManager.textFor(context),
                             letterSpacing: -0.3,
                           ),
                         ),
@@ -216,7 +216,7 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11.sp,
-                                  color: ColorsManager.grey,
+                                  color: ColorsManager.textSecondaryFor(context),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -242,8 +242,8 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            ColorsManager.greyUltraLight,
-            ColorsManager.greyLight.withOpacity(0.5),
+            ColorsManager.dividerFor(context),
+            ColorsManager.dividerFor(context).withOpacity(0.5),
           ],
         ),
       ),
@@ -251,7 +251,7 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
         child: Icon(
           Icons.image_rounded,
           size: 40.sp,
-          color: ColorsManager.greyLight,
+          color: ColorsManager.textSecondaryFor(context),
         ),
       ),
     );

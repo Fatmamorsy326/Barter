@@ -13,7 +13,7 @@ class ChatListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           _buildSliverAppBar(context),
@@ -127,8 +127,8 @@ class ChatListScreen extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ColorsManager.purpleSoft,
-                  ColorsManager.purpleSoft.withOpacity(0.5),
+                  ColorsManager.purpleSoftFor(context),
+                  ColorsManager.purpleSoftFor(context).withOpacity(0.5),
                 ],
               ),
               shape: BoxShape.circle,
@@ -136,7 +136,7 @@ class ChatListScreen extends StatelessWidget {
             child: Icon(
               Icons.chat_bubble_outline_rounded,
               size: 56.sp,
-              color: ColorsManager.purple,
+              color: ColorsManager.purpleFor(context),
             ),
           ),
           SizedBox(height: 20.h),
@@ -145,7 +145,7 @@ class ChatListScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.w600,
-              color: ColorsManager.black,
+              color: ColorsManager.textFor(context),
             ),
           ),
           SizedBox(height: 8.h),
@@ -153,7 +153,7 @@ class ChatListScreen extends StatelessWidget {
             'Start a conversation about an item',
             style: TextStyle(
               fontSize: 14.sp,
-              color: ColorsManager.grey,
+              color: ColorsManager.textSecondaryFor(context),
             ),
             textAlign: TextAlign.center,
           ),
@@ -221,11 +221,11 @@ class _ShimmerChatTileState extends State<_ShimmerChatTile>
         return Container(
           padding: REdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: ColorsManager.cardFor(context),
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
-                color: ColorsManager.shadow,
+                color: ColorsManager.shadowFor(context),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -271,10 +271,10 @@ class _ShimmerChatTileState extends State<_ShimmerChatTile>
         gradient: LinearGradient(
           begin: Alignment(_animation.value - 1, 0),
           end: Alignment(_animation.value + 1, 0),
-          colors: const [
-            ColorsManager.shimmerBase,
-            ColorsManager.shimmerHighlight,
-            ColorsManager.shimmerBase,
+          colors: [
+            ColorsManager.shimmerBaseFor(context),
+            ColorsManager.shimmerHighlightFor(context),
+            ColorsManager.shimmerBaseFor(context),
           ],
           stops: const [0.0, 0.5, 1.0],
         ),
@@ -362,8 +362,8 @@ class _ChatListTileState extends State<ChatListTile>
               padding: REdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: hasUnread 
-                    ? ColorsManager.purpleSoft.withOpacity(0.5) 
-                    : ColorsManager.white,
+                    ? ColorsManager.purpleSoftFor(context).withOpacity(0.5) 
+                    : ColorsManager.cardFor(context),
                 borderRadius: BorderRadius.circular(16.r),
                 border: hasUnread
                     ? Border.all(
@@ -374,8 +374,8 @@ class _ChatListTileState extends State<ChatListTile>
                 boxShadow: [
                   BoxShadow(
                     color: _isPressed 
-                        ? ColorsManager.shadowDark 
-                        : ColorsManager.shadow,
+                        ? ColorsManager.shadowFor(context) 
+                        : ColorsManager.shadowFor(context),
                     blurRadius: _isPressed ? 15 : 10,
                     offset: Offset(0, _isPressed ? 6 : 4),
                   ),
@@ -435,7 +435,7 @@ class _ChatListTileState extends State<ChatListTile>
                                 style: TextStyle(
                                   fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w600,
                                   fontSize: 15.sp,
-                                  color: ColorsManager.black,
+                                  color: ColorsManager.textFor(context),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -445,7 +445,7 @@ class _ChatListTileState extends State<ChatListTile>
                               _formatTime(widget.chat.lastMessageTime),
                               style: TextStyle(
                                 fontSize: 11.sp,
-                                color: hasUnread ? ColorsManager.purple : ColorsManager.grey,
+                                color: hasUnread ? ColorsManager.purple : ColorsManager.textSecondaryFor(context),
                                 fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w400,
                               ),
                             ),
@@ -501,8 +501,8 @@ class _ChatListTileState extends State<ChatListTile>
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: hasUnread 
-                                      ? ColorsManager.black.withOpacity(0.8) 
-                                      : ColorsManager.grey,
+                                      ? ColorsManager.textFor(context).withOpacity(0.8) 
+                                      : ColorsManager.textSecondaryFor(context),
                                   fontSize: 13.sp,
                                   fontWeight: hasUnread ? FontWeight.w500 : FontWeight.w400,
                                 ),

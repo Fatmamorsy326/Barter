@@ -20,7 +20,7 @@ class MyListingsScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           _buildSliverAppBar(context),
@@ -70,14 +70,11 @@ class MyListingsScreen extends StatelessWidget {
       automaticallyImplyLeading: false,
       expandedHeight: 80.h,
       flexibleSpace: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              ColorsManager.gradientStart,
-              ColorsManager.gradientEnd,
-            ],
+            colors: ColorsManager.gradientFor(context),
           ),
         ),
         child: FlexibleSpaceBar(
@@ -133,8 +130,8 @@ class MyListingsScreen extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  ColorsManager.purpleSoft,
-                  ColorsManager.purpleSoft.withOpacity(0.5),
+                  ColorsManager.purpleSoftFor(context),
+                  ColorsManager.purpleSoftFor(context).withOpacity(0.5),
                 ],
               ),
               shape: BoxShape.circle,
@@ -142,7 +139,7 @@ class MyListingsScreen extends StatelessWidget {
             child: Icon(
               Icons.inventory_2_outlined,
               size: 56.sp,
-              color: ColorsManager.purple,
+              color: ColorsManager.purpleFor(context),
             ),
           ),
           SizedBox(height: 24.h),
@@ -151,7 +148,7 @@ class MyListingsScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.w600,
-              color: ColorsManager.black,
+              color: ColorsManager.textFor(context),
             ),
           ),
           SizedBox(height: 8.h),
@@ -159,7 +156,7 @@ class MyListingsScreen extends StatelessWidget {
             'Add your first item to start trading',
             style: TextStyle(
               fontSize: 14.sp,
-              color: ColorsManager.grey,
+              color: ColorsManager.textSecondaryFor(context),
             ),
           ),
           SizedBox(height: 24.h),
@@ -168,11 +165,8 @@ class MyListingsScreen extends StatelessWidget {
             child: Container(
               padding: REdgeInsets.symmetric(horizontal: 24, vertical: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    ColorsManager.gradientStart,
-                    ColorsManager.gradientEnd,
-                  ],
+                gradient: LinearGradient(
+                  colors: ColorsManager.gradientFor(context),
                 ),
                 borderRadius: BorderRadius.circular(28.r),
                 boxShadow: [
@@ -212,6 +206,7 @@ class MyListingsScreen extends StatelessWidget {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
+          backgroundColor: ColorsManager.cardFor(context),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
           title: Row(
             children: [
@@ -224,24 +219,25 @@ class MyListingsScreen extends StatelessWidget {
                 child: Icon(Icons.lock_rounded, color: Colors.orange, size: 20.sp),
               ),
               SizedBox(width: 12.w),
-              const Text('Cannot Delete'),
+              Text('Cannot Delete', style: TextStyle(color: ColorsManager.textFor(context))),
             ],
           ),
-          content: const Text(
+          content: Text(
             'This item is in an active exchange and cannot be deleted.\n\n'
             'Please complete or cancel the exchange first.',
+            style: TextStyle(color: ColorsManager.textSecondaryFor(context)),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
+              child: Text('OK', style: TextStyle(color: ColorsManager.purpleFor(context))),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
                 Navigator.pushNamed(context, Routes.exchangesList);
               },
-              child: Text('View Exchanges', style: TextStyle(color: ColorsManager.purple)),
+              child: Text('View Exchanges', style: TextStyle(color: ColorsManager.purpleFor(context))),
             ),
           ],
         ),
@@ -252,13 +248,14 @@ class MyListingsScreen extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsManager.cardFor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text(AppLocalizations.of(context)!.delete_item),
-        content: Text(AppLocalizations.of(context)!.confirm_delete),
+        title: Text(AppLocalizations.of(context)!.delete_item, style: TextStyle(color: ColorsManager.textFor(context))),
+        content: Text(AppLocalizations.of(context)!.confirm_delete, style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppLocalizations.of(context)!.cancel),
+            child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -332,6 +329,7 @@ class MyListingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsManager.cardFor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         title: Row(
           children: [
@@ -344,21 +342,21 @@ class MyListingsScreen extends StatelessWidget {
               child: Icon(Icons.lock_rounded, color: Colors.orange, size: 20.sp),
             ),
             SizedBox(width: 12.w),
-            const Text('Cannot Change'),
+            Text('Cannot Change', style: TextStyle(color: ColorsManager.textFor(context))),
           ],
         ),
-        content: Text(message),
+        content: Text(message, style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
+            child: Text('OK', style: TextStyle(color: ColorsManager.purpleFor(context))),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pushNamed(context, Routes.exchangesList);
             },
-            child: Text('View Exchanges', style: TextStyle(color: ColorsManager.purple)),
+            child: Text('View Exchanges', style: TextStyle(color: ColorsManager.purpleFor(context))),
           ),
         ],
       ),
@@ -402,11 +400,11 @@ class _ShimmerListingCardState extends State<_ShimmerListingCard>
         return Container(
           padding: REdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: ColorsManager.cardFor(context),
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
-                color: ColorsManager.shadow,
+                color: ColorsManager.shadowFor(context),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -443,10 +441,10 @@ class _ShimmerListingCardState extends State<_ShimmerListingCard>
         gradient: LinearGradient(
           begin: Alignment(_animation.value - 1, 0),
           end: Alignment(_animation.value + 1, 0),
-          colors: const [
-            ColorsManager.shimmerBase,
-            ColorsManager.shimmerHighlight,
-            ColorsManager.shimmerBase,
+          colors: [
+            ColorsManager.shimmerBaseFor(context),
+            ColorsManager.shimmerHighlightFor(context),
+            ColorsManager.shimmerBaseFor(context),
           ],
           stops: const [0.0, 0.5, 1.0],
         ),
@@ -524,11 +522,11 @@ class _MyListingCardState extends State<MyListingCard>
           duration: const Duration(milliseconds: 200),
           padding: REdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: widget.item.isAvailable ? ColorsManager.white : ColorsManager.greyUltraLight,
+            color: widget.item.isAvailable ? ColorsManager.cardFor(context) : ColorsManager.backgroundFor(context),
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
-                color: _isPressed ? ColorsManager.shadowDark : ColorsManager.shadow,
+                color: _isPressed ? ColorsManager.shadowFor(context) : ColorsManager.shadowFor(context),
                 blurRadius: _isPressed ? 15 : 10,
                 offset: Offset(0, _isPressed ? 6 : 4),
               ),
@@ -544,7 +542,7 @@ class _MyListingCardState extends State<MyListingCard>
                   borderRadius: BorderRadius.circular(12.r),
                   boxShadow: [
                     BoxShadow(
-                      color: ColorsManager.shadow,
+                      color: ColorsManager.shadowFor(context),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -588,7 +586,7 @@ class _MyListingCardState extends State<MyListingCard>
                       style: TextStyle(
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600,
-                        color: widget.item.isAvailable ? ColorsManager.black : ColorsManager.grey,
+                        color: widget.item.isAvailable ? ColorsManager.textFor(context) : ColorsManager.textSecondaryFor(context),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -598,7 +596,7 @@ class _MyListingCardState extends State<MyListingCard>
                       widget.item.category.displayName,
                       style: TextStyle(
                         fontSize: 12.sp,
-                        color: ColorsManager.grey,
+                        color: ColorsManager.textSecondaryFor(context),
                       ),
                     ),
                     SizedBox(height: 8.h),
@@ -617,11 +615,12 @@ class _MyListingCardState extends State<MyListingCard>
               // Menu button
               Container(
                 decoration: BoxDecoration(
-                  color: ColorsManager.greyUltraLight,
+                  color: ColorsManager.dividerFor(context),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert_rounded, color: ColorsManager.grey, size: 22.sp),
+                  color: ColorsManager.cardFor(context),
+                  icon: Icon(Icons.more_vert_rounded, color: ColorsManager.textSecondaryFor(context), size: 22.sp),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                   onSelected: (value) {
                     switch (value) {
@@ -641,9 +640,9 @@ class _MyListingCardState extends State<MyListingCard>
                       value: 'edit',
                       child: Row(
                         children: [
-                          Icon(Icons.edit_rounded, size: 18.sp, color: ColorsManager.purple),
+                          Icon(Icons.edit_rounded, size: 18.sp, color: ColorsManager.purpleFor(context)),
                           SizedBox(width: 10.w),
-                          Text(AppLocalizations.of(context)!.edit),
+                          Text(AppLocalizations.of(context)!.edit, style: TextStyle(color: ColorsManager.textFor(context))),
                         ],
                       ),
                     ),
@@ -661,6 +660,7 @@ class _MyListingCardState extends State<MyListingCard>
                             widget.item.isAvailable
                                 ? AppLocalizations.of(context)!.mark_unavailable
                                 : AppLocalizations.of(context)!.mark_available,
+                            style: TextStyle(color: ColorsManager.textFor(context)),
                           ),
                         ],
                       ),
@@ -757,12 +757,12 @@ class _MyListingCardState extends State<MyListingCard>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            ColorsManager.greyLight,
-            ColorsManager.greyUltraLight,
+            ColorsManager.dividerFor(context),
+            ColorsManager.backgroundFor(context),
           ],
         ),
       ),
-      child: Icon(Icons.image_rounded, color: ColorsManager.grey, size: 32.sp),
+      child: Icon(Icons.image_rounded, color: ColorsManager.textSecondaryFor(context), size: 32.sp),
     );
   }
 }

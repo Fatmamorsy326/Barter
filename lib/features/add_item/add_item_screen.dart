@@ -64,7 +64,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorsManager.background,
+
       body: CustomScrollView(
         slivers: [
           _buildSliverAppBar(context),
@@ -177,7 +177,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           style: TextStyle(
             fontSize: 16.sp,
             fontWeight: FontWeight.w600,
-            color: ColorsManager.black,
+            color: ColorsManager.textFor(context),
           ),
         ),
       ],
@@ -187,7 +187,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   Widget _buildFormCard(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: ColorsManager.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
@@ -204,7 +204,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   Widget _buildDivider() {
     return Padding(
       padding: REdgeInsets.symmetric(horizontal: 16),
-      child: Divider(height: 1, color: ColorsManager.greyUltraLight),
+      child: Divider(height: 1, color: ColorsManager.dividerFor(context)),
     );
   }
 
@@ -216,11 +216,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
     return Container(
       padding: REdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ColorsManager.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: ColorsManager.shadow,
+            color: ColorsManager.shadowFor(context),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -341,7 +341,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
-                color: ColorsManager.shadow,
+                color: ColorsManager.shadowFor(context),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -410,7 +410,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
-                color: ColorsManager.shadow,
+                color: ColorsManager.shadowFor(context),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -472,7 +472,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         decoration: BoxDecoration(
-          color: ColorsManager.white,
+          color: ColorsManager.cardFor(context),
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
         ),
         child: SafeArea(
@@ -641,7 +641,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       padding: REdgeInsets.all(16),
       child: DropdownButtonFormField<ItemCategory>(
         value: _selectedCategory,
-        style: TextStyle(fontSize: 15.sp, color: ColorsManager.black),
+        style: TextStyle(fontSize: 15.sp, color: ColorsManager.textFor(context)),
         icon: Icon(Icons.keyboard_arrow_down_rounded, color: ColorsManager.grey),
         decoration: InputDecoration(
           labelText: AppLocalizations.of(context)!.category,
@@ -669,7 +669,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       padding: REdgeInsets.all(16),
       child: DropdownButtonFormField<ItemCondition>(
         value: _selectedCondition,
-        style: TextStyle(fontSize: 15.sp, color: ColorsManager.black),
+        style: TextStyle(fontSize: 15.sp, color: ColorsManager.textFor(context)),
         icon: Icon(Icons.keyboard_arrow_down_rounded, color: ColorsManager.grey),
         decoration: InputDecoration(
           labelText: AppLocalizations.of(context)!.condition,
