@@ -1,7 +1,3 @@
-// ============================================
-// FILE: lib/features/add_item/add_item_screen.dart
-// ============================================
-
 import 'dart:io';
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/ui_utils.dart';
@@ -68,36 +64,102 @@ class _AddItemScreenState extends State<AddItemScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _isEditing
-              ? AppLocalizations.of(context)!.edit_item
-              : AppLocalizations.of(context)!.add_item,
-        ),
+      backgroundColor: ColorsManager.background,
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(context),
+          SliverToBoxAdapter(
+            child: Form(
+              key: _formKey,
+              child: Padding(
+                padding: REdgeInsets.fromLTRB(16, 16, 16, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildImagePicker(),
+                    SizedBox(height: 24.h),
+                    _buildSectionTitle('Basic Information', Icons.info_outline_rounded),
+                    SizedBox(height: 12.h),
+                    _buildFormCard([
+                      _buildTitleField(),
+                      _buildDivider(),
+                      _buildDescriptionField(),
+                    ]),
+                    SizedBox(height: 24.h),
+                    _buildSectionTitle('Details', Icons.category_rounded),
+                    SizedBox(height: 12.h),
+                    _buildFormCard([
+                      _buildCategoryDropdown(),
+                      _buildDivider(),
+                      _buildConditionDropdown(),
+                      _buildDivider(),
+                      _buildLocationField(),
+                    ]),
+                    SizedBox(height: 24.h),
+                    _buildSectionTitle('Exchange Preferences', Icons.swap_horiz_rounded),
+                    SizedBox(height: 12.h),
+                    _buildFormCard([
+                      _buildPreferredExchangeField(),
+                    ]),
+                    SizedBox(height: 32.h),
+                    _buildSubmitButton(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: REdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      floating: true,
+      pinned: true,
+      expandedHeight: 80.h,
+      leading: IconButton(
+        icon: Container(
+          padding: REdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+          child: Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 18.sp),
+        ),
+        onPressed: () => Navigator.pop(context),
+      ),
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              ColorsManager.gradientStart,
+              ColorsManager.gradientEnd,
+            ],
+          ),
+        ),
+        child: FlexibleSpaceBar(
+          titlePadding: REdgeInsets.only(left: 60, bottom: 16),
+          title: Row(
             children: [
-              _buildImagePicker(),
-              SizedBox(height: 24.h),
-              _buildTitleField(),
-              SizedBox(height: 16.h),
-              _buildDescriptionField(),
-              SizedBox(height: 16.h),
-              _buildCategoryDropdown(),
-              SizedBox(height: 16.h),
-              _buildConditionDropdown(),
-              SizedBox(height: 16.h),
-              _buildLocationField(),
-              SizedBox(height: 16.h),
-              _buildPreferredExchangeField(),
-              SizedBox(height: 32.h),
-              _buildSubmitButton(),
-              SizedBox(height: 32.h),
+              Icon(
+                _isEditing ? Icons.edit_rounded : Icons.add_box_rounded,
+                color: Colors.white,
+                size: 20.sp,
+              ),
+              SizedBox(width: 10.w),
+              Text(
+                _isEditing
+                    ? AppLocalizations.of(context)!.edit_item
+                    : AppLocalizations.of(context)!.add_item,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18.sp,
+                  letterSpacing: -0.5,
+                ),
+              ),
             ],
           ),
         ),
@@ -105,39 +167,117 @@ class _AddItemScreenState extends State<AddItemScreen> {
     );
   }
 
-  // ==================== IMAGE PICKER ====================
-
-  Widget _buildImagePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Row(
       children: [
+        Icon(icon, color: ColorsManager.purple, size: 20.sp),
+        SizedBox(width: 8.w),
         Text(
-          AppLocalizations.of(context)!.photos,
-          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          'Add up to 5 photos of your item',
-          style: TextStyle(fontSize: 12.sp, color: Colors.grey),
-        ),
-        SizedBox(height: 12.h),
-        SizedBox(
-          height: 110.h,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              if (_existingImageUrls.length + _newImages.length < 5)
-                _buildAddPhotoButton(),
-              ..._existingImageUrls.asMap().entries.map(
-                    (entry) => _buildExistingImagePreview(entry.key, entry.value),
-              ),
-              ..._newImages.asMap().entries.map(
-                    (entry) => _buildNewImagePreview(entry.key, entry.value),
-              ),
-            ],
+          title,
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w600,
+            color: ColorsManager.black,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFormCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorsManager.white,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+            color: ColorsManager.shadow,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: REdgeInsets.symmetric(horizontal: 16),
+      child: Divider(height: 1, color: ColorsManager.greyUltraLight),
+    );
+  }
+
+  // ==================== IMAGE PICKER ====================
+
+  Widget _buildImagePicker() {
+    final totalImages = _existingImageUrls.length + _newImages.length;
+
+    return Container(
+      padding: REdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorsManager.white,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+            color: ColorsManager.shadow,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.photo_library_rounded, color: ColorsManager.purple, size: 20.sp),
+              SizedBox(width: 8.w),
+              Text(
+                AppLocalizations.of(context)!.photos,
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Container(
+                padding: REdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ColorsManager.purpleSoft,
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Text(
+                  '$totalImages/5',
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: ColorsManager.purple,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Add up to 5 photos of your item',
+            style: TextStyle(fontSize: 12.sp, color: ColorsManager.grey),
+          ),
+          SizedBox(height: 16.h),
+          SizedBox(
+            height: 110.h,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                if (totalImages < 5) _buildAddPhotoButton(),
+                ..._existingImageUrls.asMap().entries.map(
+                      (entry) => _buildExistingImagePreview(entry.key, entry.value),
+                ),
+                ..._newImages.asMap().entries.map(
+                      (entry) => _buildNewImagePreview(entry.key, entry.value),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -149,21 +289,39 @@ class _AddItemScreenState extends State<AddItemScreen> {
         height: 100.h,
         margin: REdgeInsets.only(right: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: ColorsManager.purple, width: 2),
-          borderRadius: BorderRadius.circular(12.r),
-          color: ColorsManager.purple.withOpacity(0.05),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              ColorsManager.purpleSoft,
+              ColorsManager.purpleSoft.withOpacity(0.5),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: ColorsManager.purple.withOpacity(0.3),
+            width: 2,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_a_photo, color: ColorsManager.purple, size: 32.sp),
-            SizedBox(height: 4.h),
+            Container(
+              padding: REdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: ColorsManager.purple.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.add_a_photo_rounded, color: ColorsManager.purple, size: 24.sp),
+            ),
+            SizedBox(height: 6.h),
             Text(
               AppLocalizations.of(context)!.add_photo,
               style: TextStyle(
                 color: ColorsManager.purple,
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w500,
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -180,33 +338,68 @@ class _AddItemScreenState extends State<AddItemScreen> {
           height: 100.h,
           margin: REdgeInsets.only(right: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.r),
-            image: DecorationImage(
-              image: NetworkImage(url),
-              fit: BoxFit.cover,
-            ),
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: ColorsManager.shadow,
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16.r),
+            child: Image.network(url, fit: BoxFit.cover),
           ),
         ),
         Positioned(
-          top: 4,
-          right: 16,
+          top: 6,
+          right: 18,
           child: GestureDetector(
             onTap: () => setState(() => _existingImageUrls.removeAt(index)),
             child: Container(
-              padding: REdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
+              padding: REdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withOpacity(0.3),
+                    blurRadius: 6,
+                  ),
+                ],
               ),
-              child: Icon(Icons.close, size: 16.sp, color: Colors.white),
+              child: Icon(Icons.close_rounded, size: 14.sp, color: Colors.white),
             ),
           ),
         ),
+        if (index == 0)
+          Positioned(
+            bottom: 6,
+            left: 6,
+            child: Container(
+              padding: REdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
+                ),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Text(
+                'Main',
+                style: TextStyle(color: Colors.white, fontSize: 10.sp, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
       ],
     );
   }
 
   Widget _buildNewImagePreview(int index, File file) {
+    final isMain = _existingImageUrls.isEmpty && index == 0;
+
     return Stack(
       children: [
         Container(
@@ -214,28 +407,61 @@ class _AddItemScreenState extends State<AddItemScreen> {
           height: 100.h,
           margin: REdgeInsets.only(right: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.r),
-            image: DecorationImage(
-              image: FileImage(file),
-              fit: BoxFit.cover,
-            ),
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: ColorsManager.shadow,
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16.r),
+            child: Image.file(file, fit: BoxFit.cover),
           ),
         ),
         Positioned(
-          top: 4,
-          right: 16,
+          top: 6,
+          right: 18,
           child: GestureDetector(
             onTap: () => setState(() => _newImages.removeAt(index)),
             child: Container(
-              padding: REdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
+              padding: REdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withOpacity(0.3),
+                    blurRadius: 6,
+                  ),
+                ],
               ),
-              child: Icon(Icons.close, size: 16.sp, color: Colors.white),
+              child: Icon(Icons.close_rounded, size: 14.sp, color: Colors.white),
             ),
           ),
         ),
+        if (isMain)
+          Positioned(
+            bottom: 6,
+            left: 6,
+            child: Container(
+              padding: REdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
+                ),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Text(
+                'Main',
+                style: TextStyle(color: Colors.white, fontSize: 10.sp, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -243,34 +469,88 @@ class _AddItemScreenState extends State<AddItemScreen> {
   void _showImageSourceDialog() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: REdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: ColorsManager.purple),
-                title: Text(AppLocalizations.of(context)!.camera),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: ColorsManager.purple),
-                title: Text(AppLocalizations.of(context)!.gallery),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-            ],
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: ColorsManager.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: REdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: ColorsManager.greyLight,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+                SizedBox(height: 24.h),
+                Text(
+                  'Add Photo',
+                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 24.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildPhotoOption(
+                      icon: Icons.camera_alt_rounded,
+                      label: AppLocalizations.of(context)!.camera,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickImage(ImageSource.camera);
+                      },
+                    ),
+                    _buildPhotoOption(
+                      icon: Icons.photo_library_rounded,
+                      label: AppLocalizations.of(context)!.gallery,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickImage(ImageSource.gallery);
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: REdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: ColorsManager.purpleSoft,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: ColorsManager.purple, size: 28.sp),
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -297,121 +577,166 @@ class _AddItemScreenState extends State<AddItemScreen> {
   // ==================== FORM FIELDS ====================
 
   Widget _buildTitleField() {
-    return TextFormField(
-      controller: _titleController,
-      textCapitalization: TextCapitalization.words,
-      textInputAction: TextInputAction.next,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'Title is required';
-        }
-        if (value.trim().length < 3) {
-          return 'Title must be at least 3 characters';
-        }
-        return null;
-      },
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.item_title,
-        hintText: AppLocalizations.of(context)!.enter_title,
-        prefixIcon: const Icon(Icons.title),
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        controller: _titleController,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.next,
+        style: TextStyle(fontSize: 15.sp),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Title is required';
+          }
+          if (value.trim().length < 3) {
+            return 'Title must be at least 3 characters';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.item_title,
+          hintText: AppLocalizations.of(context)!.enter_title,
+          prefixIcon: Icon(Icons.title_rounded, color: ColorsManager.purple),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
       ),
     );
   }
 
   Widget _buildDescriptionField() {
-    return TextFormField(
-      controller: _descriptionController,
-      maxLines: 4,
-      textCapitalization: TextCapitalization.sentences,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'Description is required';
-        }
-        if (value.trim().length < 10) {
-          return 'Description must be at least 10 characters';
-        }
-        return null;
-      },
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.description,
-        hintText: AppLocalizations.of(context)!.enter_description,
-        alignLabelWithHint: true,
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        controller: _descriptionController,
+        maxLines: 4,
+        textCapitalization: TextCapitalization.sentences,
+        style: TextStyle(fontSize: 15.sp),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Description is required';
+          }
+          if (value.trim().length < 10) {
+            return 'Description must be at least 10 characters';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.description,
+          hintText: AppLocalizations.of(context)!.enter_description,
+          prefixIcon: Padding(
+            padding: REdgeInsets.only(bottom: 60),
+            child: Icon(Icons.description_rounded, color: ColorsManager.purple),
+          ),
+          border: InputBorder.none,
+          alignLabelWithHint: true,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
       ),
     );
   }
 
   Widget _buildCategoryDropdown() {
-    return DropdownButtonFormField<ItemCategory>(
-      value: _selectedCategory,
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.category,
-        prefixIcon: const Icon(Icons.category_outlined),
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: DropdownButtonFormField<ItemCategory>(
+        value: _selectedCategory,
+        style: TextStyle(fontSize: 15.sp, color: ColorsManager.black),
+        icon: Icon(Icons.keyboard_arrow_down_rounded, color: ColorsManager.grey),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.category,
+          prefixIcon: Icon(Icons.category_rounded, color: ColorsManager.purple),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
+        items: ItemCategory.values.map((cat) {
+          return DropdownMenuItem(
+            value: cat,
+            child: Text(cat.displayName),
+          );
+        }).toList(),
+        onChanged: (value) {
+          if (value != null) {
+            setState(() => _selectedCategory = value);
+          }
+        },
       ),
-      items: ItemCategory.values.map((cat) {
-        return DropdownMenuItem(
-          value: cat,
-          child: Text(cat.displayName),
-        );
-      }).toList(),
-      onChanged: (value) {
-        if (value != null) {
-          setState(() => _selectedCategory = value);
-        }
-      },
     );
   }
 
   Widget _buildConditionDropdown() {
-    return DropdownButtonFormField<ItemCondition>(
-      value: _selectedCondition,
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.condition,
-        prefixIcon: const Icon(Icons.star_outline),
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: DropdownButtonFormField<ItemCondition>(
+        value: _selectedCondition,
+        style: TextStyle(fontSize: 15.sp, color: ColorsManager.black),
+        icon: Icon(Icons.keyboard_arrow_down_rounded, color: ColorsManager.grey),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.condition,
+          prefixIcon: Icon(Icons.star_rounded, color: ColorsManager.purple),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
+        items: ItemCondition.values.map((cond) {
+          return DropdownMenuItem(
+            value: cond,
+            child: Text(cond.displayName),
+          );
+        }).toList(),
+        onChanged: (value) {
+          if (value != null) {
+            setState(() => _selectedCondition = value);
+          }
+        },
       ),
-      items: ItemCondition.values.map((cond) {
-        return DropdownMenuItem(
-          value: cond,
-          child: Text(cond.displayName),
-        );
-      }).toList(),
-      onChanged: (value) {
-        if (value != null) {
-          setState(() => _selectedCondition = value);
-        }
-      },
     );
   }
 
   Widget _buildLocationField() {
-    return TextFormField(
-      controller: _locationController,
-      textCapitalization: TextCapitalization.words,
-      textInputAction: TextInputAction.next,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'Location is required';
-        }
-        return null;
-      },
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.location,
-        hintText: AppLocalizations.of(context)!.enter_location,
-        prefixIcon: const Icon(Icons.location_on_outlined),
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        controller: _locationController,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.next,
+        style: TextStyle(fontSize: 15.sp),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Location is required';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.location,
+          hintText: AppLocalizations.of(context)!.enter_location,
+          prefixIcon: Icon(Icons.location_on_rounded, color: ColorsManager.purple),
+          border: InputBorder.none,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
       ),
     );
   }
 
   Widget _buildPreferredExchangeField() {
-    return TextFormField(
-      controller: _preferredExchangeController,
-      textCapitalization: TextCapitalization.sentences,
-      textInputAction: TextInputAction.done,
-      maxLines: 2,
-      decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.preferred_exchange,
-        hintText: AppLocalizations.of(context)!.what_looking_for,
-        prefixIcon: const Icon(Icons.swap_horiz),
-        alignLabelWithHint: true,
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: TextFormField(
+        controller: _preferredExchangeController,
+        textCapitalization: TextCapitalization.sentences,
+        textInputAction: TextInputAction.done,
+        maxLines: 2,
+        style: TextStyle(fontSize: 15.sp),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.preferred_exchange,
+          hintText: AppLocalizations.of(context)!.what_looking_for,
+          prefixIcon: Padding(
+            padding: REdgeInsets.only(bottom: 24),
+            child: Icon(Icons.swap_horiz_rounded, color: ColorsManager.purple),
+          ),
+          border: InputBorder.none,
+          alignLabelWithHint: true,
+          contentPadding: REdgeInsets.symmetric(vertical: 8),
+        ),
       ),
     );
   }
@@ -419,23 +744,60 @@ class _AddItemScreenState extends State<AddItemScreen> {
   // ==================== SUBMIT BUTTON ====================
 
   Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _submitItem,
-        child: _isLoading
-            ? SizedBox(
-          height: 20.h,
-          width: 20.w,
-          child: const CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Colors.white,
-          ),
-        )
-            : Text(
-          _isEditing
-              ? AppLocalizations.of(context)!.save_changes
-              : AppLocalizations.of(context)!.publish,
+    return GestureDetector(
+      onTap: _isLoading ? null : _submitItem,
+      child: Container(
+        width: double.infinity,
+        height: 56.h,
+        decoration: BoxDecoration(
+          gradient: _isLoading
+              ? null
+              : const LinearGradient(
+                  colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
+                ),
+          color: _isLoading ? ColorsManager.greyLight : null,
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: _isLoading
+              ? null
+              : [
+                  BoxShadow(
+                    color: ColorsManager.purple.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+        ),
+        child: Center(
+          child: _isLoading
+              ? SizedBox(
+                  height: 24.h,
+                  width: 24.w,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: ColorsManager.purple,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isEditing ? Icons.save_rounded : Icons.publish_rounded,
+                      color: Colors.white,
+                      size: 22.sp,
+                    ),
+                    SizedBox(width: 10.w),
+                    Text(
+                      _isEditing
+                          ? AppLocalizations.of(context)!.save_changes
+                          : AppLocalizations.of(context)!.publish,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -444,15 +806,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
   // ==================== SUBMIT LOGIC ====================
 
   Future<void> _submitItem() async {
-    print('=== Starting submit ===');
-
-    // Validate form
     if (!_formKey.currentState!.validate()) {
-      print('Form validation failed');
       return;
     }
 
-    // Check for images
     if (_existingImageUrls.isEmpty && _newImages.isEmpty) {
       UiUtils.showToastMessage(
         AppLocalizations.of(context)!.add_at_least_one_photo,
@@ -462,33 +819,23 @@ class _AddItemScreenState extends State<AddItemScreen> {
     }
 
     setState(() => _isLoading = true);
-    print('Loading started');
 
     try {
       final user = FirebaseService.currentUser;
       if (user == null) {
-        print('User is null');
         UiUtils.showToastMessage('Please login first', Colors.red);
         setState(() => _isLoading = false);
         return;
       }
-      print('User ID: ${user.uid}');
 
-      // Get owner name
       String ownerName = user.displayName ?? user.email?.split('@').first ?? 'User';
-      print('Owner name: $ownerName');
 
-      // Upload new images using ImgBB instead of Firebase Storage
       List<String> allImageUrls = List.from(_existingImageUrls);
-      print('Existing images: ${_existingImageUrls.length}');
-      print('New images to upload: ${_newImages.length}');
 
       if (_newImages.isNotEmpty) {
-        print('Starting image upload to ImgBB...');
         try {
           final newUrls = await ImageUploadService.uploadMultipleImages(_newImages);
           allImageUrls.addAll(newUrls);
-          print('Uploaded ${newUrls.length} images successfully');
         } catch (e) {
           print('Error uploading images: $e');
           UiUtils.showToastMessage('Failed to upload images', Colors.red);
@@ -497,16 +844,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
         }
       }
 
-      print('Total images after upload: ${allImageUrls.length}');
-
-      // If no images were uploaded successfully, show error
       if (allImageUrls.isEmpty) {
         UiUtils.showToastMessage('Failed to upload images', Colors.red);
         setState(() => _isLoading = false);
         return;
       }
 
-      // Create item data as Map (simpler approach)
       final itemData = {
         'ownerId': user.uid,
         'ownerName': ownerName,
@@ -523,35 +866,25 @@ class _AddItemScreenState extends State<AddItemScreen> {
         'isAvailable': true,
       };
 
-      print('Item data created: $itemData');
-
-      // Save to Firestore
       if (_isEditing) {
-        print('Updating existing item: ${widget.itemToEdit!.id}');
         await FirebaseService.updateItemDirect(widget.itemToEdit!.id, itemData);
-        print('Item updated successfully');
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.item_updated,
           Colors.green,
         );
       } else {
-        print('Adding new item...');
-        final docId = await FirebaseService.addItemDirect(itemData);
-        print('Item added with ID: $docId');
+        await FirebaseService.addItemDirect(itemData);
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.item_published,
           Colors.green,
         );
       }
 
-      // Go back
       if (mounted) {
         Navigator.pop(context, true);
       }
-    } catch (e, stackTrace) {
-      print('=== ERROR in submitItem ===');
-      print('Error: $e');
-      print('Stack trace: $stackTrace');
+    } catch (e) {
+      print('Error in submitItem: $e');
       UiUtils.showToastMessage(
         _isEditing
             ? AppLocalizations.of(context)!.failed_to_update
@@ -561,7 +894,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
-        print('Loading finished');
       }
     }
   }
