@@ -302,7 +302,7 @@ class _ExchangesScreenState extends State<ExchangesScreen>
                   Row(
                     children: [
                       _buildItemThumbnail(
-                        isProposer ? exchange.itemOffered : exchange.itemRequested,
+                        isProposer ? exchange.itemsOffered : exchange.itemsRequested,
                         'You Offer',
                         true,
                       ),
@@ -329,7 +329,7 @@ class _ExchangesScreenState extends State<ExchangesScreen>
                         ),
                       ),
                       _buildItemThumbnail(
-                        isProposer ? exchange.itemRequested : exchange.itemOffered,
+                        isProposer ? exchange.itemsRequested : exchange.itemsOffered,
                         'You Receive',
                         false,
                       ),
@@ -378,7 +378,12 @@ class _ExchangesScreenState extends State<ExchangesScreen>
     );
   }
 
-  Widget _buildItemThumbnail(ExchangeItem item, String label, bool isOutgoing) {
+  Widget _buildItemThumbnail(List<ExchangeItem> items, String label, bool isOutgoing) {
+    if (items.isEmpty) return const Expanded(child: SizedBox());
+    
+    final item = items.first;
+    final count = items.length;
+
     return Expanded(
       child: Column(
         children: [
@@ -438,6 +443,26 @@ class _ExchangesScreenState extends State<ExchangesScreen>
                       textAlign: TextAlign.center,
                     ),
                   ),
+                  if (count > 1)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: REdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: ColorsManager.purpleFor(context),
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Text(
+                          '+${count - 1}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

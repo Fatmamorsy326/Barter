@@ -16,8 +16,15 @@ class ExchangeModel {
   final ExchangeStatus status;
   final String proposedBy;      // User who proposed
   final String proposedTo;      // User who receives proposal
-  final ExchangeItem itemOffered;   // What proposer offers
-  final ExchangeItem itemRequested; // What proposer wants
+  
+  // Deprecated: Use itemsOffered instead
+  final ExchangeItem? itemOffered;   
+  // Deprecated: Use itemsRequested instead
+  final ExchangeItem? itemRequested; 
+
+  final List<ExchangeItem> itemsOffered;   // What proposer offers
+  final List<ExchangeItem> itemsRequested; // What proposer wants
+  
   final DateTime proposedAt;
   final DateTime? acceptedAt;
   final DateTime? completedAt;
@@ -36,8 +43,10 @@ class ExchangeModel {
     required this.status,
     required this.proposedBy,
     required this.proposedTo,
-    required this.itemOffered,
-    required this.itemRequested,
+    this.itemOffered,
+    this.itemRequested,
+    List<ExchangeItem>? itemsOffered,
+    List<ExchangeItem>? itemsRequested,
     required this.proposedAt,
     this.acceptedAt,
     this.completedAt,
@@ -50,16 +59,50 @@ class ExchangeModel {
     this.ratingByAccepter,
     this.reviewByProposer,
     this.reviewByAccepter,
-  });
+  }) : 
+    itemsOffered = itemsOffered ?? (itemOffered != null ? [itemOffered] : []),
+    itemsRequested = itemsRequested ?? (itemRequested != null ? [itemRequested] : []);
 
   factory ExchangeModel.fromJson(Map<String, dynamic> json) {
+    // Handle legacy single item format
+    ExchangeItem? legacyItemOffered;
+    if (json['itemOffered'] != null && json['itemOffered'] is Map) {
+      legacyItemOffered = ExchangeItem.fromJson(json['itemOffered']);
+    }
+
+    ExchangeItem? legacyItemRequested;
+    if (json['itemRequested'] != null && json['itemRequested'] is Map) {
+      legacyItemRequested = ExchangeItem.fromJson(json['itemRequested']);
+    }
+
+    // Handle new list format
+    List<ExchangeItem> itemsOfferedList = [];
+    if (json['itemsOffered'] != null) {
+      itemsOfferedList = (json['itemsOffered'] as List)
+          .map((i) => ExchangeItem.fromJson(i))
+          .toList();
+    } else if (legacyItemOffered != null) {
+      itemsOfferedList = [legacyItemOffered];
+    }
+
+    List<ExchangeItem> itemsRequestedList = [];
+    if (json['itemsRequested'] != null) {
+      itemsRequestedList = (json['itemsRequested'] as List)
+          .map((i) => ExchangeItem.fromJson(i))
+          .toList();
+    } else if (legacyItemRequested != null) {
+      itemsRequestedList = [legacyItemRequested];
+    }
+
     return ExchangeModel(
       id: json['id'] ?? '',
       status: ExchangeStatus.values[json['status'] ?? 0],
       proposedBy: json['proposedBy'] ?? '',
       proposedTo: json['proposedTo'] ?? '',
-      itemOffered: ExchangeItem.fromJson(json['itemOffered'] ?? {}),
-      itemRequested: ExchangeItem.fromJson(json['itemRequested'] ?? {}),
+      itemOffered: legacyItemOffered,
+      itemRequested: legacyItemRequested,
+      itemsOffered: itemsOfferedList,
+      itemsRequested: itemsRequestedList,
       proposedAt: DateTime.parse(json['proposedAt']),
       acceptedAt: json['acceptedAt'] != null
           ? DateTime.parse(json['acceptedAt'])
@@ -87,8 +130,13 @@ class ExchangeModel {
       'status': status.index,
       'proposedBy': proposedBy,
       'proposedTo': proposedTo,
-      'itemOffered': itemOffered.toJson(),
-      'itemRequested': itemRequested.toJson(),
+      // Save both formats for backward compatibility if needed, 
+      // but primarily we rely on the lists now.
+      // We'll save the first item as legacy field for older app versions to not crash
+      'itemOffered': itemsOffered.isNotEmpty ? itemsOffered.first.toJson() : null,
+      'itemRequested': itemsRequested.isNotEmpty ? itemsRequested.first.toJson() : null,
+      'itemsOffered': itemsOffered.map((i) => i.toJson()).toList(),
+      'itemsRequested': itemsRequested.map((i) => i.toJson()).toList(),
       'proposedAt': proposedAt.toIso8601String(),
       'acceptedAt': acceptedAt?.toIso8601String(),
       'completedAt': completedAt?.toIso8601String(),
@@ -123,8 +171,8 @@ class ExchangeModel {
       status: status ?? this.status,
       proposedBy: proposedBy,
       proposedTo: proposedTo,
-      itemOffered: itemOffered,
-      itemRequested: itemRequested,
+      itemsOffered: itemsOffered,
+      itemsRequested: itemsRequested,
       proposedAt: proposedAt,
       acceptedAt: acceptedAt ?? this.acceptedAt,
       completedAt: completedAt ?? this.completedAt,

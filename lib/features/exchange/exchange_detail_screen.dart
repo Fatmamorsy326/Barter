@@ -202,6 +202,9 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
     final userId = FirebaseService.currentUser!.uid;
     final isProposer = _exchange!.proposedBy == userId;
 
+    final myItems = isProposer ? _exchange!.itemsOffered : _exchange!.itemsRequested;
+    final theirItems = isProposer ? _exchange!.itemsRequested : _exchange!.itemsOffered;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -229,25 +232,16 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: _buildItemCard(
-                  isProposer ? _exchange!.itemOffered : _exchange!.itemRequested,
-                  'You Offer',
-                ),
-              ),
+              _buildItemsList(myItems, 'You Offer'),
               Padding(
-                padding: REdgeInsets.symmetric(horizontal: 16),
-                child: Column(
+                padding: REdgeInsets.symmetric(vertical: 16),
+                child: Row(
                   children: [
-                    Container(
-                      width: 1,
-                      height: 40.h,
-                      color: ColorsManager.dividerFor(context),
-                    ),
+                    Expanded(child: Divider(color: ColorsManager.dividerFor(context))),
                     Padding(
-                      padding: REdgeInsets.symmetric(vertical: 12),
+                      padding: REdgeInsets.symmetric(horizontal: 16),
                       child: Container(
                         padding: REdgeInsets.all(8),
                         decoration: BoxDecoration(
@@ -255,26 +249,17 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          Icons.swap_horiz_rounded,
+                          Icons.swap_vert_rounded,
                           color: ColorsManager.purpleFor(context),
                           size: 24.sp,
                         ),
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 40.h,
-                      color: ColorsManager.dividerFor(context),
-                    ),
+                    Expanded(child: Divider(color: ColorsManager.dividerFor(context))),
                   ],
                 ),
               ),
-              Expanded(
-                child: _buildItemCard(
-                  isProposer ? _exchange!.itemRequested : _exchange!.itemOffered,
-                  'You Receive',
-                ),
-              ),
+              _buildItemsList(theirItems, 'You Receive'),
             ],
           ),
         ),
@@ -282,11 +267,54 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
     );
   }
 
-  Widget _buildItemCard(ExchangeItem item, String label) {
+  Widget _buildItemsList(List<ExchangeItem> items, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.bold,
+            color: ColorsManager.textSecondaryFor(context),
+          ),
+        ),
+        SizedBox(height: 12.h),
+        if (items.isEmpty)
+          Text(
+            'No items selected',
+            style: TextStyle(
+              color: ColorsManager.textSecondaryFor(context),
+              fontStyle: FontStyle.italic,
+            ),
+          )
+        else if (items.length == 1)
+          _buildSingleItem(items.first)
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12.w,
+              mainAxisSpacing: 16.h,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              return _buildSingleItem(items[index]);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSingleItem(ExchangeItem item) {
     return Column(
       children: [
         Container(
-          height: 140.h,
+          height: 120.h,
+          width: double.infinity,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
@@ -299,53 +327,20 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16.r),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  item.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: ColorsManager.shimmerBaseFor(context),
-                    child: Icon(
-                      Icons.image_not_supported_rounded,
-                      color: ColorsManager.textSecondaryFor(context),
-                    ),
-                  ),
+            child: Image.network(
+              item.imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: ColorsManager.shimmerBaseFor(context),
+                child: Icon(
+                  Icons.image_not_supported_rounded,
+                  color: ColorsManager.textSecondaryFor(context),
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                      stops: const [0.6, 1.0],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 10,
-                  left: 8,
-                  right: 8,
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 8.h),
         Text(
           item.title,
           maxLines: 2,
@@ -762,6 +757,45 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
       } catch (e) {
         UiUtils.hideDialog(context);
         UiUtils.showToastMessage('Failed to decline exchange', Colors.red);
+      }
+    }
+  }
+
+  Future<void> _cancelPendingRequest() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ColorsManager.cardFor(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        title: Text('Cancel Request', style: TextStyle(color: ColorsManager.textFor(context))),
+        content: Text(
+          'Are you sure you want to cancel this exchange request?',
+          style: TextStyle(color: ColorsManager.textSecondaryFor(context)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('No, Keep It', style: TextStyle(color: ColorsManager.textSecondaryFor(context))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        UiUtils.showLoading(context, false);
+        await FirebaseService.cancelExchange(widget.exchangeId);
+        UiUtils.hideDialog(context);
+        Navigator.pop(context);
+        UiUtils.showToastMessage('Request cancelled', ColorsManager.grey);
+      } catch (e) {
+        UiUtils.hideDialog(context);
+        UiUtils.showToastMessage('Failed to cancel request', Colors.red);
       }
     }
   }

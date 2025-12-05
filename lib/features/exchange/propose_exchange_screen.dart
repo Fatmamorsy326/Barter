@@ -1,12 +1,13 @@
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';
+import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ProposeExchangeScreen extends StatefulWidget {
-  final ItemModel requestedItem; // Item they want
+  final ItemModel requestedItem; // The initial item they want
 
   const ProposeExchangeScreen({super.key, required this.requestedItem});
 
@@ -16,13 +17,20 @@ class ProposeExchangeScreen extends StatefulWidget {
 
 class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
   final _notesController = TextEditingController();
-  ItemModel? _selectedItem;
+  
+  // Items I am offering
+  final List<ItemModel> _selectedItems = [];
   List<ItemModel> _myItems = [];
+  
+  // Items I am requesting (starts with the one passed in)
+  late List<ItemModel> _requestedItems;
+
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _requestedItems = [widget.requestedItem];
     _loadMyItems();
   }
 
@@ -37,11 +45,8 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
       FirebaseService.getUserItemsStream(userId).listen((items) {
         if (mounted) {
           setState(() {
-            // Filter: only show available items that are not the requested item
-            _myItems = items.where((item) =>
-            item.isAvailable &&
-                item.id != widget.requestedItem.id
-            ).toList();
+            // Filter: only show available items that are not the requested item (just in case)
+            _myItems = items.where((item) => item.isAvailable).toList();
             _isLoading = false;
           });
         }
@@ -173,9 +178,10 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
             children: [
               Expanded(
                 child: _buildItemPreview(
-                  _selectedItem,
-                  'Your Item',
-                  'Select below',
+                  _selectedItems,
+                  'Your Offer',
+                  'Select items',
+                  isMySide: true,
                 ),
               ),
               Padding(
@@ -212,9 +218,10 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
               ),
               Expanded(
                 child: _buildItemPreview(
-                  widget.requestedItem,
+                  _requestedItems,
                   'Their Item',
-                  widget.requestedItem.title,
+                  'Select items',
+                  isMySide: false,
                 ),
               ),
             ],
@@ -224,65 +231,233 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
     );
   }
 
-  Widget _buildItemPreview(ItemModel? item, String label, String placeholder) {
-    return Column(
-      children: [
-        Container(
-          height: 120.h,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(
-              color: item != null ? ColorsManager.purpleFor(context) : ColorsManager.dividerFor(context),
-              width: item != null ? 2 : 1,
-            ),
-            color: ColorsManager.backgroundFor(context),
-          ),
-          child: item != null && item.imageUrls.isNotEmpty
-              ? ClipRRect(
-            borderRadius: BorderRadius.circular(14.r),
-            child: Image.network(
-              item.imageUrls.first,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Center(
-                child: Icon(
-                  Icons.image_not_supported_rounded,
-                  size: 32.sp,
-                  color: ColorsManager.textSecondaryFor(context),
+  Widget _buildItemPreview(List<ItemModel> items, String label, String placeholder, {required bool isMySide}) {
+    final hasItems = items.isNotEmpty;
+    final firstItem = hasItems ? items.first : null;
+    final count = items.length;
+
+    return GestureDetector(
+      onTap: !isMySide ? _showOtherUserItems : null, // Allow adding more items on "Their" side
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              Container(
+                height: 120.h,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(
+                    color: hasItems ? ColorsManager.purpleFor(context) : ColorsManager.dividerFor(context),
+                    width: hasItems ? 2 : 1,
+                  ),
+                  color: ColorsManager.backgroundFor(context),
+                ),
+                child: hasItems && firstItem!.imageUrls.isNotEmpty
+                    ? ClipRRect(
+                  borderRadius: BorderRadius.circular(14.r),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        firstItem.imageUrls.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Icon(
+                            Icons.image_not_supported_rounded,
+                            size: 32.sp,
+                            color: ColorsManager.textSecondaryFor(context),
+                          ),
+                        ),
+                      ),
+                      if (count > 1)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: REdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: ColorsManager.purpleFor(context),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Text(
+                              '+${count - 1}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                )
+                    : Center(
+                  child: Icon(
+                    Icons.add_photo_alternate_rounded,
+                    size: 32.sp,
+                    color: ColorsManager.textSecondaryFor(context).withOpacity(0.5),
+                  ),
                 ),
               ),
+              // Add button overlay for "Their Item" side
+              if (!isMySide)
+                Positioned(
+                  bottom: -8,
+                  right: -8,
+                  child: IconButton(
+                    onPressed: _showOtherUserItems,
+                    icon: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: ColorsManager.purpleFor(context),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Icon(Icons.add, color: Colors.white, size: 16.sp),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: ColorsManager.textSecondaryFor(context),
+              fontWeight: FontWeight.w500,
             ),
-          )
-              : Center(
-            child: Icon(
-              Icons.add_photo_alternate_rounded,
-              size: 32.sp,
-              color: ColorsManager.textSecondaryFor(context).withOpacity(0.5),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            hasItems ? (count > 1 ? '${firstItem!.title} & ${count - 1} more' : firstItem!.title) : placeholder,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13.sp,
+              fontWeight: hasItems ? FontWeight.bold : FontWeight.normal,
+              color: hasItems ? ColorsManager.textFor(context) : ColorsManager.textSecondaryFor(context),
             ),
           ),
-        ),
-        SizedBox(height: 12.h),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.sp,
-            color: ColorsManager.textSecondaryFor(context),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          item?.title ?? placeholder,
-          maxLines: 2,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13.sp,
-            fontWeight: item != null ? FontWeight.bold : FontWeight.normal,
-            color: item != null ? ColorsManager.textFor(context) : ColorsManager.textSecondaryFor(context),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  void _showOtherUserItems() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) => DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.9,
+          builder: (_, controller) => Container(
+            decoration: BoxDecoration(
+              color: ColorsManager.backgroundFor(context),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 40.w,
+                  height: 4.h,
+                  margin: REdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+                Padding(
+                  padding: REdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select Items to Request',
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: ColorsManager.textFor(context),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Done'),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<List<ItemModel>>(
+                    stream: FirebaseService.getUserItemsStream(widget.requestedItem.ownerId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return Center(child: Text('No items found', style: TextStyle(color: ColorsManager.textSecondaryFor(context))));
+                      }
+
+                      final items = snapshot.data!.where((item) => item.isAvailable).toList();
+
+                      return ListView.builder(
+                        controller: controller,
+                        padding: REdgeInsets.all(16),
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          final isSelected = _requestedItems.any((i) => i.id == item.id);
+
+                          return ListTile(
+                            onTap: () {
+                              setSheetState(() {
+                                if (isSelected) {
+                                  _requestedItems.removeWhere((i) => i.id == item.id);
+                                } else {
+                                  _requestedItems.add(item);
+                                }
+                              });
+                              // Also update parent state to reflect changes in preview immediately
+                              setState(() {}); 
+                            },
+                            leading: ClipRRect(
+                              borderRadius: BorderRadius.circular(8.r),
+                              child: item.imageUrls.isNotEmpty
+                                  ? Image.network(
+                                      item.imageUrls.first,
+                                      width: 50.w,
+                                      height: 50.w,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(
+                                      width: 50.w,
+                                      height: 50.w,
+                                      color: ColorsManager.shimmerBaseFor(context),
+                                      child: const Icon(Icons.image),
+                                    ),
+                            ),
+                            title: Text(item.title, style: TextStyle(color: ColorsManager.textFor(context))),
+                            trailing: isSelected
+                                ? Icon(Icons.check_circle, color: ColorsManager.purpleFor(context))
+                                : Icon(Icons.circle_outlined, color: ColorsManager.textSecondaryFor(context)),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).then((_) => setState(() {})); // Refresh parent when closed
   }
 
   Widget _buildItemSelection() {
@@ -291,13 +466,27 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
       children: [
         Padding(
           padding: REdgeInsets.only(left: 4, bottom: 12),
-          child: Text(
-            'Select Your Item to Offer',
-            style: TextStyle(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.bold,
-              color: ColorsManager.textFor(context),
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Select Items to Offer',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: ColorsManager.textFor(context),
+                ),
+              ),
+              if (_selectedItems.isNotEmpty)
+                Text(
+                  '${_selectedItems.length} selected',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: ColorsManager.purpleFor(context),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
           ),
         ),
         GridView.builder(
@@ -312,10 +501,18 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
           itemCount: _myItems.length,
           itemBuilder: (context, index) {
             final item = _myItems[index];
-            final isSelected = _selectedItem?.id == item.id;
+            final isSelected = _selectedItems.any((i) => i.id == item.id);
 
             return GestureDetector(
-              onTap: () => setState(() => _selectedItem = item),
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedItems.removeWhere((i) => i.id == item.id);
+                  } else {
+                    _selectedItems.add(item);
+                  }
+                });
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
@@ -476,7 +673,7 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _selectedItem == null ? null : _proposeExchange,
+        onPressed: _selectedItems.isEmpty || _requestedItems.isEmpty ? null : _proposeExchange,
         style: ElevatedButton.styleFrom(
           backgroundColor: ColorsManager.purpleFor(context),
           foregroundColor: Colors.white,
@@ -486,7 +683,7 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         ),
         child: Text(
-          'Send Proposal',
+          'Send Proposal (${_selectedItems.length} for ${_requestedItems.length})',
           style: TextStyle(
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
@@ -498,19 +695,27 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
   }
 
   Future<void> _proposeExchange() async {
-    if (_selectedItem == null) return;
+    if (_selectedItems.isEmpty || _requestedItems.isEmpty) return;
 
     try {
       UiUtils.showLoading(context, false);
 
+      final itemsOffered = _selectedItems.map((item) => ExchangeItem(
+        itemId: item.id,
+        title: item.title,
+        imageUrl: item.imageUrls.isNotEmpty ? item.imageUrls.first : '',
+      )).toList();
+
+      final itemsRequested = _requestedItems.map((item) => ExchangeItem(
+        itemId: item.id,
+        title: item.title,
+        imageUrl: item.imageUrls.isNotEmpty ? item.imageUrls.first : '',
+      )).toList();
+
       await FirebaseService.createExchange(
         proposedTo: widget.requestedItem.ownerId,
-        itemOfferedId: _selectedItem!.id,
-        itemOfferedTitle: _selectedItem!.title,
-        itemOfferedImage: _selectedItem!.imageUrls.first,
-        itemRequestedId: widget.requestedItem.id,
-        itemRequestedTitle: widget.requestedItem.title,
-        itemRequestedImage: widget.requestedItem.imageUrls.first,
+        itemsOffered: itemsOffered,
+        itemsRequested: itemsRequested,
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),

@@ -578,38 +578,29 @@ class FirebaseService {
   /// Create a new exchange proposal
   static Future<String> createExchange({
     required String proposedTo,
-    required String itemOfferedId,
-    required String itemOfferedTitle,
-    required String itemOfferedImage,
-    required String itemRequestedId,
-    required String itemRequestedTitle,
-    required String itemRequestedImage,
+    required List<ExchangeItem> itemsOffered,
+    required List<ExchangeItem> itemsRequested,
     String? notes,
   }) async {
     final currentUserId = currentUser!.uid;
 
-    // Create or get existing chat for this item
+    // Create or get existing chat for this item (using the first requested item as context)
     final chatId = await createOrGetChat(
       proposedTo,
-      itemRequestedId,
-      itemRequestedTitle,
+      itemsRequested.first.itemId,
+      itemsRequested.first.title,
     );
 
     final exchangeData = {
       'status': 0, // ExchangeStatus.pending
       'proposedBy': currentUserId,
       'proposedTo': proposedTo,
-      'participants': [currentUserId, proposedTo], // ADDED THIS - Important!
-      'itemOffered': {
-        'itemId': itemOfferedId,
-        'title': itemOfferedTitle,
-        'imageUrl': itemOfferedImage,
-      },
-      'itemRequested': {
-        'itemId': itemRequestedId,
-        'title': itemRequestedTitle,
-        'imageUrl': itemRequestedImage,
-      },
+      'participants': [currentUserId, proposedTo],
+      'itemsOffered': itemsOffered.map((i) => i.toJson()).toList(),
+      'itemsRequested': itemsRequested.map((i) => i.toJson()).toList(),
+      // Legacy fields for backward compatibility
+      'itemOffered': itemsOffered.first.toJson(),
+      'itemRequested': itemsRequested.first.toJson(),
       'proposedAt': DateTime.now().toIso8601String(),
       'confirmedBy': [],
       'notes': notes,
@@ -620,7 +611,6 @@ class FirebaseService {
     await docRef.update({'id': docRef.id});
 
     print('Created exchange: ${docRef.id}');
-    print('Participants: [${currentUserId}, ${proposedTo}]');
 
     return docRef.id;
   }
@@ -631,8 +621,24 @@ class FirebaseService {
     final doc = await _firestore.collection('exchanges').doc(exchangeId).get();
     final data = doc.data()!;
 
-    final itemOfferedId = data['itemOffered']['itemId'];
-    final itemRequestedId = data['itemRequested']['itemId'];
+    // Handle both new list format and legacy single item format
+    List<String> itemOfferedIds = [];
+    if (data['itemsOffered'] != null) {
+      itemOfferedIds = (data['itemsOffered'] as List)
+          .map((i) => i['itemId'] as String)
+          .toList();
+    } else if (data['itemOffered'] != null) {
+      itemOfferedIds.add(data['itemOffered']['itemId']);
+    }
+
+    List<String> itemRequestedIds = [];
+    if (data['itemsRequested'] != null) {
+      itemRequestedIds = (data['itemsRequested'] as List)
+          .map((i) => i['itemId'] as String)
+          .toList();
+    } else if (data['itemRequested'] != null) {
+      itemRequestedIds.add(data['itemRequested']['itemId']);
+    }
 
     // Update exchange status
     await _firestore.collection('exchanges').doc(exchangeId).update({
@@ -640,16 +646,20 @@ class FirebaseService {
       'acceptedAt': DateTime.now().toIso8601String(),
     });
 
-    // Mark both items as unavailable
-    await _firestore.collection('items').doc(itemOfferedId).update({
-      'isAvailable': false,
-    });
+    // Mark all items as unavailable
+    final batch = _firestore.batch();
+    
+    for (final id in itemOfferedIds) {
+      batch.update(_firestore.collection('items').doc(id), {'isAvailable': false});
+    }
+    
+    for (final id in itemRequestedIds) {
+      batch.update(_firestore.collection('items').doc(id), {'isAvailable': false});
+    }
 
-    await _firestore.collection('items').doc(itemRequestedId).update({
-      'isAvailable': false,
-    });
+    await batch.commit();
 
-    print('Marked items as unavailable: $itemOfferedId, $itemRequestedId');
+    print('Marked items as unavailable: $itemOfferedIds, $itemRequestedIds');
   }
 
   /// Reject/Cancel an exchange
@@ -661,19 +671,38 @@ class FirebaseService {
     // Check if exchange was accepted (status = 1)
     // If so, make items available again
     if (data['status'] == 1) {
-      final itemOfferedId = data['itemOffered']['itemId'];
-      final itemRequestedId = data['itemRequested']['itemId'];
+      List<String> itemOfferedIds = [];
+      if (data['itemsOffered'] != null) {
+        itemOfferedIds = (data['itemsOffered'] as List)
+            .map((i) => i['itemId'] as String)
+            .toList();
+      } else if (data['itemOffered'] != null) {
+        itemOfferedIds.add(data['itemOffered']['itemId']);
+      }
 
-      // Make both items available again
-      await _firestore.collection('items').doc(itemOfferedId).update({
-        'isAvailable': true,
-      });
+      List<String> itemRequestedIds = [];
+      if (data['itemsRequested'] != null) {
+        itemRequestedIds = (data['itemsRequested'] as List)
+            .map((i) => i['itemId'] as String)
+            .toList();
+      } else if (data['itemRequested'] != null) {
+        itemRequestedIds.add(data['itemRequested']['itemId']);
+      }
 
-      await _firestore.collection('items').doc(itemRequestedId).update({
-        'isAvailable': true,
-      });
+      // Make all items available again
+      final batch = _firestore.batch();
+      
+      for (final id in itemOfferedIds) {
+        batch.update(_firestore.collection('items').doc(id), {'isAvailable': true});
+      }
+      
+      for (final id in itemRequestedIds) {
+        batch.update(_firestore.collection('items').doc(id), {'isAvailable': true});
+      }
 
-      print('Made items available again: $itemOfferedId, $itemRequestedId');
+      await batch.commit();
+
+      print('Made items available again: $itemOfferedIds, $itemRequestedIds');
     }
 
     // Update exchange status to cancelled
@@ -752,24 +781,35 @@ class FirebaseService {
     await _firestore.collection('exchanges').doc(exchangeId).update(updates);
   }
 
-  /// Get user's exchanges (as proposer or receiver) - FIXED VERSION
+  /// Get exchange by ID
+  static Future<ExchangeModel?> getExchangeById(String exchangeId) async {
+    try {
+      final doc = await _firestore.collection('exchanges').doc(exchangeId).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        data['id'] = doc.id;
+        return ExchangeModel.fromJson(data);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting exchange by ID: $e');
+      return null;
+    }
+  }
+
+  /// Get user's exchanges (as proposer or receiver)
   static Stream<List<ExchangeModel>> getUserExchangesStream(String userId) {
     print('Getting exchanges for user: $userId');
 
     return _firestore
         .collection('exchanges')
-        .where('participants', arrayContains: userId) // This is the key fix
+        .where('participants', arrayContains: userId)
         .orderBy('proposedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      print('Found ${snapshot.docs.length} exchanges');
-
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
-
-        print('Exchange ${doc.id}: status=${data['status']}, proposedBy=${data['proposedBy']}, proposedTo=${data['proposedTo']}');
-
         return ExchangeModel.fromJson(data);
       }).toList();
     })
@@ -779,28 +819,52 @@ class FirebaseService {
     });
   }
 
+  /// Get pending exchanges stream for notification badge (incoming only)
+  static Stream<List<ExchangeModel>> getPendingExchangesStream() {
+    final userId = currentUser?.uid;
+    if (userId == null) return Stream.value([]);
+
+    return _firestore
+        .collection('exchanges')
+        .where('proposedTo', isEqualTo: userId)
+        .where('status', isEqualTo: 0) // ExchangeStatus.pending
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return ExchangeModel.fromJson(data);
+      }).toList();
+    })
+        .handleError((e) {
+      print('Error in getPendingExchangesStream: $e');
+      return <ExchangeModel>[];
+    });
+  }
+
   /// Get exchanges for a specific item (both offered and requested)
   static Future<List<ExchangeModel>> getItemExchanges(String itemId) async {
     try {
-      // Get exchanges where this item is offered
+      // Get exchanges where this item is offered (legacy check)
       final offeredSnapshot = await _firestore
           .collection('exchanges')
           .where('itemOffered.itemId', isEqualTo: itemId)
           .get();
 
-      // Get exchanges where this item is requested
+      // Get exchanges where this item is requested (legacy check)
       final requestedSnapshot = await _firestore
           .collection('exchanges')
           .where('itemRequested.itemId', isEqualTo: itemId)
           .get();
 
-      // Combine both lists and remove duplicates
+      // Note: For full multi-item support in queries, we'd need to query against arrays
+      // but Firestore doesn't support array-contains-any on objects easily.
+      // For now, this covers the legacy cases and primary item cases.
+      
       final allDocs = [...offeredSnapshot.docs, ...requestedSnapshot.docs];
       final uniqueIds = <String>{};
       final uniqueDocs = allDocs.where((doc) {
-        if (uniqueIds.contains(doc.id)) {
-          return false;
-        }
+        if (uniqueIds.contains(doc.id)) return false;
         uniqueIds.add(doc.id);
         return true;
       }).toList();
@@ -814,52 +878,5 @@ class FirebaseService {
       print('Error getting item exchanges: $e');
       return [];
     }
-  }
-
-  /// Get exchange by ID
-  static Future<ExchangeModel?> getExchangeById(String exchangeId) async {
-    try {
-      final doc = await _firestore.collection('exchanges').doc(exchangeId).get();
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        data['id'] = doc.id;
-        return ExchangeModel.fromJson(data);
-      }
-      return null;
-    } catch (e) {
-      print('Error getting exchange: $e');
-      return null;
-    }
-  }
-
-  /// Get pending exchange proposals for current user - FIXED VERSION
-  static Stream<List<ExchangeModel>> getPendingExchangesStream() {
-    final userId = currentUser?.uid;
-    if (userId == null) {
-      print('No current user for pending exchanges');
-      return Stream.value([]);
-    }
-
-    print('Getting pending exchanges for user: $userId');
-
-    return _firestore
-        .collection('exchanges')
-        .where('proposedTo', isEqualTo: userId)
-        .where('status', isEqualTo: 0) // pending only
-        .orderBy('proposedAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      print('Found ${snapshot.docs.length} pending exchanges');
-
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return ExchangeModel.fromJson(data);
-      }).toList();
-    })
-        .handleError((e) {
-      print('Error in getPendingExchangesStream: $e');
-      return <ExchangeModel>[];
-    });
   }
 }
