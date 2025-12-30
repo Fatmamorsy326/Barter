@@ -3,6 +3,7 @@
 // ============================================
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 enum ItemCategory {
   electronics,
@@ -101,6 +102,9 @@ class ItemModel {
   final ItemCondition condition;
   final String? preferredExchange;
   final String location;
+  final double? latitude;        // NEW - Latitude coordinate
+  final double? longitude;       // NEW - Longitude coordinate
+  final String? detailedAddress; // NEW - Full address details
   final DateTime createdAt;
   final bool isAvailable;
 
@@ -115,6 +119,9 @@ class ItemModel {
     required this.condition,
     this.preferredExchange,
     required this.location,
+    this.latitude,
+    this.longitude,
+    this.detailedAddress,
     required this.createdAt,
     this.isAvailable = true,
   });
@@ -131,6 +138,9 @@ class ItemModel {
       condition: ItemCondition.values[json['condition'] ?? 2],
       preferredExchange: json['preferredExchange'],
       location: json['location'] ?? '',
+      latitude: json['latitude']?.toDouble(),
+      longitude: json['longitude']?.toDouble(),
+      detailedAddress: json['detailedAddress'],
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
@@ -150,6 +160,9 @@ class ItemModel {
       'condition': condition.index,
       'preferredExchange': preferredExchange,
       'location': location,
+      'latitude': latitude,
+      'longitude': longitude,
+      'detailedAddress': detailedAddress,
       'createdAt': createdAt.toIso8601String(),
       'isAvailable': isAvailable,
     };
@@ -167,6 +180,9 @@ class ItemModel {
     ItemCondition? condition,
     String? preferredExchange,
     String? location,
+    double? latitude,
+    double? longitude,
+    String? detailedAddress,
     DateTime? createdAt,
     bool? isAvailable,
   }) {
@@ -181,8 +197,65 @@ class ItemModel {
       condition: condition ?? this.condition,
       preferredExchange: preferredExchange ?? this.preferredExchange,
       location: location ?? this.location,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      detailedAddress: detailedAddress ?? this.detailedAddress,
       createdAt: createdAt ?? this.createdAt,
       isAvailable: isAvailable ?? this.isAvailable,
     );
+  }
+
+  // ====================
+  // LOCATION HELPER METHODS
+  // ====================
+
+  /// Check if item has valid coordinates
+  bool get hasCoordinates => latitude != null && longitude != null;
+
+  /// Calculate distance to another item in kilometers
+  double? distanceTo(ItemModel other) {
+    if (!hasCoordinates || !other.hasCoordinates) {
+      return null;
+    }
+    return Geolocator.distanceBetween(
+      latitude!,
+      longitude!,
+      other.latitude!,
+      other.longitude!,
+    ) / 1000; // Convert to kilometers
+  }
+
+  /// Calculate distance from a specific location in kilometers
+  double? distanceFrom(double lat, double lng) {
+    if (!hasCoordinates) {
+      return null;
+    }
+    return Geolocator.distanceBetween(
+      latitude!,
+      longitude!,
+      lat,
+      lng,
+    ) / 1000; // Convert to kilometers
+  }
+
+  /// Get formatted distance string
+  String? getFormattedDistance(double lat, double lng) {
+    final distance = distanceFrom(lat, lng);
+    if (distance == null) return null;
+
+    if (distance < 1) {
+      return '${(distance * 1000).toStringAsFixed(0)}m away';
+    } else if (distance < 10) {
+      return '${distance.toStringAsFixed(1)}km away';
+    } else {
+      return '${distance.toStringAsFixed(0)}km away';
+    }
+  }
+
+  /// Check if item is within a certain radius (in kilometers)
+  bool isWithinRadius(double lat, double lng, double radiusKm) {
+    final distance = distanceFrom(lat, lng);
+    if (distance == null) return false;
+    return distance <= radiusKm;
   }
 }

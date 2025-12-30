@@ -4,9 +4,11 @@ import 'package:barter/model/chat_model.dart';
 import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
+import 'package:barter/services/image_upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:geolocator/geolocator.dart';
 
 class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -17,12 +19,12 @@ class FirebaseService {
 
   // ==================== AUTH ====================
 
-  static Future<UserCredential> signUp(String email, String password) async {
+  static Future<UserCredential> signUp(String email, String password, String name) async {
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
-    await _createUserDocument(credential.user!, 'User');
+    await _createUserDocument(credential.user!, name);
     return credential;
   }
 
@@ -314,6 +316,51 @@ class FirebaseService {
 
     final updates = <String, dynamic>{
       'lastMessage': content,
+      'lastMessageTime': DateTime.now().toIso8601String(),
+      'lastSenderId': currentUserId,
+    };
+
+    // Increment unread count for the other user
+    if (otherUserId.isNotEmpty) {
+      updates['unreadCounts.$otherUserId'] = FieldValue.increment(1);
+    }
+
+    await _firestore.collection('chats').doc(chatId).update(updates);
+  }
+
+  static Future<void> sendPhotoMessage(String chatId, File photoFile) async {
+    final currentUserId = currentUser!.uid;
+    
+    // Upload photo to ImgBB
+    final photoUrl = await ImageUploadService.uploadImage(photoFile);
+    
+    final messageData = {
+      'senderId': currentUserId,
+      'content': 'Photo',
+      'timestamp': DateTime.now().toIso8601String(),
+      'isRead': false,
+      'messageType': 'photo',
+      'photoUrl': photoUrl,
+    };
+
+    await _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .add(messageData);
+
+    // Get the chat document to find the other participant
+    final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+    final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+    
+    // Find the other user ID
+    final otherUserId = participants.firstWhere(
+      (id) => id != currentUserId, 
+      orElse: () => '',
+    );
+
+    final updates = <String, dynamic>{
+      'lastMessage': '📷 Photo',
       'lastMessageTime': DateTime.now().toIso8601String(),
       'lastSenderId': currentUserId,
     };
@@ -877,6 +924,305 @@ class FirebaseService {
     } catch (e) {
       print('Error getting item exchanges: $e');
       return [];
+    }
+  }
+
+
+  // ============================================
+// ADD THESE METHODS TO YOUR FirebaseService CLASS
+// ============================================
+
+  // ==================== LOCATION-BASED QUERIES ====================
+
+  /// Get items within a specific radius from a location
+  static Future<List<ItemModel>> getItemsNearLocation({
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+    ItemCategory? category,
+  }) async {
+    try {
+      print('Searching items within ${radiusKm}km of ($latitude, $longitude)');
+
+      // Get all available items (we'll filter by distance in memory)
+      var query = _firestore
+          .collection('items')
+          .where('isAvailable', isEqualTo: true);
+
+      // Add category filter if specified
+      if (category != null) {
+        query = query.where('category', isEqualTo: category.index);
+      }
+
+      final snapshot = await query.get();
+
+      // Filter items by distance
+      final nearbyItems = <ItemModel>[];
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        final item = ItemModel.fromJson(data);
+
+        // Check if item has coordinates and is within radius
+        if (item.hasCoordinates &&
+            item.isWithinRadius(latitude, longitude, radiusKm)) {
+          nearbyItems.add(item);
+        }
+      }
+
+      // Sort by distance (closest first)
+      nearbyItems.sort((a, b) {
+        final distA = a.distanceFrom(latitude, longitude) ?? double.infinity;
+        final distB = b.distanceFrom(latitude, longitude) ?? double.infinity;
+        return distA.compareTo(distB);
+      });
+
+      print('Found ${nearbyItems.length} items within radius');
+      return nearbyItems;
+    } catch (e) {
+      print('Error getting nearby items: $e');
+      return [];
+    }
+  }
+
+  /// Get items near current user's location
+  static Future<List<ItemModel>> getItemsNearMe({
+    required double radiusKm,
+    ItemCategory? category,
+  }) async {
+    try {
+      // Get current position
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        print('Location permission denied');
+        return [];
+      }
+
+      Position position = await Geolocator.getCurrentPosition();
+
+      return await getItemsNearLocation(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        radiusKm: radiusKm,
+        category: category,
+      );
+    } catch (e) {
+      print('Error getting items near me: $e');
+      return [];
+    }
+  }
+
+  /// Search items by query and filter by location
+  static Future<List<ItemModel>> searchItemsNearLocation({
+    required String query,
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+  }) async {
+    try {
+      // First get all matching search results
+      final searchResults = await searchItems(query);
+
+      // Then filter by location
+      final nearbyResults = searchResults.where((item) {
+        return item.hasCoordinates &&
+            item.isWithinRadius(latitude, longitude, radiusKm);
+      }).toList();
+
+      // Sort by distance
+      nearbyResults.sort((a, b) {
+        final distA = a.distanceFrom(latitude, longitude) ?? double.infinity;
+        final distB = b.distanceFrom(latitude, longitude) ?? double.infinity;
+        return distA.compareTo(distB);
+      });
+
+      return nearbyResults;
+    } catch (e) {
+      print('Error searching nearby items: $e');
+      return [];
+    }
+  }
+
+  /// Get stream of items ordered by distance from a location
+  static Stream<List<ItemModel>> getItemsStreamNearLocation({
+    required double latitude,
+    required double longitude,
+    double? maxDistanceKm,
+  }) {
+    return _firestore
+        .collection('items')
+        .where('isAvailable', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return ItemModel.fromJson(data);
+      }).toList();
+
+      // Filter by distance if specified
+      var filteredItems = items.where((item) {
+        if (!item.hasCoordinates) return false;
+        if (maxDistanceKm == null) return true;
+        return item.isWithinRadius(latitude, longitude, maxDistanceKm);
+      }).toList();
+
+      // Sort by distance
+      filteredItems.sort((a, b) {
+        final distA = a.distanceFrom(latitude, longitude) ?? double.infinity;
+        final distB = b.distanceFrom(latitude, longitude) ?? double.infinity;
+        return distA.compareTo(distB);
+      });
+
+      return filteredItems;
+    })
+        .handleError((e) {
+      print('Error in getItemsStreamNearLocation: $e');
+      return <ItemModel>[];
+    });
+  }
+
+  /// Get items grouped by distance ranges
+  static Future<Map<String, List<ItemModel>>> getItemsByDistanceRanges(
+      double latitude,
+      double longitude,
+      ) async {
+    try {
+      final allItems = await _firestore
+          .collection('items')
+          .where('isAvailable', isEqualTo: true)
+          .get();
+
+      final Map<String, List<ItemModel>> ranges = {
+        'Under 1km': [],
+        '1-5km': [],
+        '5-10km': [],
+        '10-25km': [],
+        '25km+': [],
+      };
+
+      for (var doc in allItems.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        final item = ItemModel.fromJson(data);
+
+        if (!item.hasCoordinates) continue;
+
+        final distance = item.distanceFrom(latitude, longitude);
+        if (distance == null) continue;
+
+        if (distance < 1) {
+          ranges['Under 1km']!.add(item);
+        } else if (distance < 5) {
+          ranges['1-5km']!.add(item);
+        } else if (distance < 10) {
+          ranges['5-10km']!.add(item);
+        } else if (distance < 25) {
+          ranges['10-25km']!.add(item);
+        } else {
+          ranges['25km+']!.add(item);
+        }
+      }
+
+      return ranges;
+    } catch (e) {
+      print('Error getting items by distance ranges: $e');
+      return {};
+    }
+  }
+
+  /// Count items within a specific radius
+  static Future<int> countItemsNearLocation({
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+  }) async {
+    try {
+      final items = await getItemsNearLocation(
+        latitude: latitude,
+        longitude: longitude,
+        radiusKm: radiusKm,
+      );
+      return items.length;
+    } catch (e) {
+      print('Error counting nearby items: $e');
+      return 0;
+    }
+  }
+
+  /// Get the closest item to a location
+  static Future<ItemModel?> getClosestItem({
+    required double latitude,
+    required double longitude,
+    ItemCategory? category,
+  }) async {
+    try {
+      final items = await getItemsNearLocation(
+        latitude: latitude,
+        longitude: longitude,
+        radiusKm: 100, // Search within 100km
+        category: category,
+      );
+
+      if (items.isEmpty) return null;
+
+      // Items are already sorted by distance
+      return items.first;
+    } catch (e) {
+      print('Error getting closest item: $e');
+      return null;
+    }
+  }
+
+  /// Update item location
+  static Future<void> updateItemLocation({
+    required String itemId,
+    required double latitude,
+    required double longitude,
+    required String location,
+    String? detailedAddress,
+  }) async {
+    await _firestore.collection('items').doc(itemId).update({
+      'latitude': latitude,
+      'longitude': longitude,
+      'location': location,
+      'detailedAddress': detailedAddress,
+    });
+  }
+
+  /// Get items on map (with coordinates only)
+  static Future<List<ItemModel>> getItemsForMap() async {
+    try {
+      final snapshot = await _firestore
+          .collection('items')
+          .where('isAvailable', isEqualTo: true)
+          .where('latitude', isNull: false)
+          .where('longitude', isNull: false)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return ItemModel.fromJson(data);
+      }).toList();
+    } catch (e) {
+      print('Error getting items for map: $e');
+      // Fallback: get all items and filter
+      final snapshot = await _firestore
+          .collection('items')
+          .where('isAvailable', isEqualTo: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return ItemModel.fromJson(data);
+      })
+          .where((item) => item.hasCoordinates)
+          .toList();
     }
   }
 }

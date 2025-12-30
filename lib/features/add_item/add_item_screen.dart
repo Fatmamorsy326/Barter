@@ -1,13 +1,16 @@
 import 'dart:io';
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/ui_utils.dart';
+import 'package:barter/features/add_item/enhanced_location_picker.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/services/image_upload_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:barter/features/add_item/location_picker_screen.dart';
 
 class AddItemScreen extends StatefulWidget {
   final ItemModel? itemToEdit;
@@ -32,6 +35,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
   bool _isLoading = false;
 
   bool get _isEditing => widget.itemToEdit != null;
+  double? _latitude;
+  double? _longitude;
+  String? _detailedAddress;
 
   @override
   void initState() {
@@ -41,16 +47,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     }
   }
 
-  void _loadItemData() {
-    final item = widget.itemToEdit!;
-    _titleController.text = item.title;
-    _descriptionController.text = item.description;
-    _preferredExchangeController.text = item.preferredExchange ?? '';
-    _locationController.text = item.location;
-    _selectedCategory = item.category;
-    _selectedCondition = item.condition;
-    _existingImageUrls = List.from(item.imageUrls);
-  }
+
 
   @override
   void dispose() {
@@ -692,30 +689,141 @@ class _AddItemScreenState extends State<AddItemScreen> {
     );
   }
 
+
+
+
+
+// Update the _buildLocationField method:
+
   Widget _buildLocationField() {
     return Padding(
       padding: REdgeInsets.all(16),
-      child: TextFormField(
-        controller: _locationController,
-        textCapitalization: TextCapitalization.words,
-        textInputAction: TextInputAction.next,
-        style: TextStyle(fontSize: 15.sp),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Location is required';
-          }
-          return null;
-        },
-        decoration: InputDecoration(
-          labelText: AppLocalizations.of(context)!.location,
-          hintText: AppLocalizations.of(context)!.enter_location,
-          prefixIcon: Icon(Icons.location_on_rounded, color: ColorsManager.purple),
-          border: InputBorder.none,
-          contentPadding: REdgeInsets.symmetric(vertical: 8),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _locationController,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+            style: TextStyle(fontSize: 15.sp),
+            readOnly: true,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Location is required';
+              }
+              return null;
+            },
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.location,
+              hintText: 'Tap map icon to select',
+              prefixIcon: Icon(Icons.location_on_rounded, color: ColorsManager.purple),
+              suffixIcon: IconButton(
+                icon: Container(
+                  padding: REdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: ColorsManager.purpleSoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.map_rounded, color: ColorsManager.purple, size: 18.sp),
+                ),
+                onPressed: _pickLocationFromMap,
+              ),
+              border: InputBorder.none,
+              contentPadding: REdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+          if (_detailedAddress != null) ...[
+            SizedBox(height: 8.h),
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 14.sp, color: ColorsManager.grey),
+                SizedBox(width: 6.w),
+                Expanded(
+                  child: Text(
+                    _detailedAddress!,
+                    style: TextStyle(
+                      fontSize: 11.sp,
+                      color: ColorsManager.grey,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_latitude != null && _longitude != null) ...[
+            SizedBox(height: 6.h),
+            Row(
+              children: [
+                Icon(Icons.my_location, size: 12.sp, color: ColorsManager.purple),
+                SizedBox(width: 6.w),
+                Text(
+                  'Lat: ${_latitude!.toStringAsFixed(6)}, Lng: ${_longitude!.toStringAsFixed(6)}',
+                  style: TextStyle(
+                    fontSize: 10.sp,
+                    color: ColorsManager.grey,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
+
+// Update the _pickLocationFromMap method:
+
+  void _pickLocationFromMap() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EnhancedLocationPickerScreen(
+          initialLocation: _latitude != null && _longitude != null
+              ? LatLng(_latitude!, _longitude!)
+              : null,
+          initialAddress: _locationController.text.isNotEmpty
+              ? _locationController.text
+              : null,
+        ),
+      ),
+    );
+
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        _locationController.text = result['address'] ?? '';
+        _detailedAddress = result['detailedAddress'];
+        _latitude = result['latitude'];
+        _longitude = result['longitude'];
+      });
+    }
+  }
+
+// Update the _loadItemData method to include coordinates:
+
+  void _loadItemData() {
+    final item = widget.itemToEdit!;
+    _titleController.text = item.title;
+    _descriptionController.text = item.description;
+    _preferredExchangeController.text = item.preferredExchange ?? '';
+    _locationController.text = item.location;
+    _selectedCategory = item.category;
+    _selectedCondition = item.condition;
+    _existingImageUrls = List.from(item.imageUrls);
+
+    // Load coordinates if available
+    if (item.latitude != null) _latitude = item.latitude;
+    if (item.longitude != null) _longitude = item.longitude;
+    if (item.detailedAddress != null) _detailedAddress = item.detailedAddress;
+  }
+
+// Update the itemData in _submitItem to include coordinates:
+
+
+
+
 
   Widget _buildPreferredExchangeField() {
     return Padding(
@@ -862,6 +970,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
             ? null
             : _preferredExchangeController.text.trim(),
         'location': _locationController.text.trim(),
+        'latitude': _latitude, // Add this
+        'longitude': _longitude, // Add this
+        'detailedAddress': _detailedAddress, // Add this
         'createdAt': DateTime.now().toIso8601String(),
         'isAvailable': true,
       };

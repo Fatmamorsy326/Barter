@@ -2,12 +2,19 @@ import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ItemCard extends StatefulWidget {
   final ItemModel item;
   final VoidCallback onTap;
+  final Position? userLocation; // NEW: Optional user location
 
-  const ItemCard({super.key, required this.item, required this.onTap});
+  const ItemCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.userLocation,
+  });
 
   @override
   State<ItemCard> createState() => _ItemCardState();
@@ -51,8 +58,31 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
     _controller.reverse();
   }
 
+  String? _getDistanceText() {
+    if (widget.userLocation == null || !widget.item.hasCoordinates) {
+      return null;
+    }
+
+    final distance = widget.item.distanceFrom(
+      widget.userLocation!.latitude,
+      widget.userLocation!.longitude,
+    );
+
+    if (distance == null) return null;
+
+    if (distance < 1) {
+      return '${(distance * 1000).toStringAsFixed(0)}m';
+    } else if (distance < 10) {
+      return '${distance.toStringAsFixed(1)}km';
+    } else {
+      return '${distance.toStringAsFixed(0)}km';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final distanceText = _getDistanceText();
+
     return GestureDetector(
       onTap: widget.onTap,
       onTapDown: _onTapDown,
@@ -73,8 +103,8 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
             borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
-                color: _isPressed 
-                    ? ColorsManager.shadowFor(context) 
+                color: _isPressed
+                    ? ColorsManager.shadowFor(context)
                     : ColorsManager.shadowFor(context),
                 blurRadius: _isPressed ? 20 : 12,
                 offset: Offset(0, _isPressed ? 8 : 4),
@@ -95,15 +125,16 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
                     children: [
                       widget.item.imageUrls.isNotEmpty
                           ? Image.network(
-                              widget.item.imageUrls.first,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return _buildPlaceholder();
-                              },
-                            )
+                        widget.item.imageUrls.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return _buildPlaceholder();
+                        },
+                      )
                           : _buildPlaceholder(),
+
                       // Gradient overlay at bottom
                       Positioned(
                         bottom: 0,
@@ -123,6 +154,7 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
                           ),
                         ),
                       ),
+
                       // Category badge
                       Positioned(
                         top: 8.h,
@@ -155,9 +187,47 @@ class _ItemCardState extends State<ItemCard> with SingleTickerProviderStateMixin
                           ),
                         ),
                       ),
+
+                      // Distance badge (NEW)
+                      if (distanceText != null)
+                        Positioned(
+                          top: 8.h,
+                          right: 8.w,
+                          child: Container(
+                            padding: REdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.near_me,
+                                  size: 10.sp,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  distanceText,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
+
                 // Content section
                 Expanded(
                   flex: 2,

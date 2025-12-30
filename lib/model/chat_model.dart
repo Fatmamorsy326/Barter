@@ -53,12 +53,37 @@ class ChatModel {
   }
 }
 
+enum MessageType {
+  text,
+  photo;
+
+  String get value {
+    switch (this) {
+      case MessageType.text:
+        return 'text';
+      case MessageType.photo:
+        return 'photo';
+    }
+  }
+
+  static MessageType fromString(String value) {
+    switch (value) {
+      case 'photo':
+        return MessageType.photo;
+      default:
+        return MessageType.text;
+    }
+  }
+}
+
 class MessageModel {
   final String messageId;
   final String senderId;
   final String content;
   final DateTime timestamp;
   final bool isRead;
+  final MessageType messageType;
+  final String? photoUrl;
 
   MessageModel({
     required this.messageId,
@@ -66,6 +91,8 @@ class MessageModel {
     required this.content,
     required this.timestamp,
     this.isRead = false,
+    this.messageType = MessageType.text,
+    this.photoUrl,
   });
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
@@ -77,6 +104,8 @@ class MessageModel {
           ? DateTime.parse(json['timestamp'])
           : DateTime.now(),
       isRead: json['isRead'] ?? false,
+      messageType: MessageType.fromString(json['messageType'] ?? 'text'),
+      photoUrl: json['photoUrl'],
     );
   }
 
@@ -87,6 +116,8 @@ class MessageModel {
       'content': content,
       'timestamp': timestamp.toIso8601String(),
       'isRead': isRead,
+      'messageType': messageType.value,
+      if (photoUrl != null) 'photoUrl': photoUrl,
     };
   }
 }

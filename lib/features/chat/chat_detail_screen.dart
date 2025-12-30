@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:barter/core/resources/colors_manager.dart';
+import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/chat_model.dart';
 import 'package:barter/model/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -371,6 +374,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            GestureDetector(
+              onTap: _showPhotoOptions,
+              child: Container(
+                width: 44.w,
+                height: 44.h,
+                margin: REdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: ColorsManager.purpleSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.attach_file_rounded,
+                  color: ColorsManager.purple,
+                  size: 20.sp,
+                ),
+              ),
+            ),
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -450,6 +470,135 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     );
   }
 
+  void _showPhotoOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: ColorsManager.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: REdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: ColorsManager.greyLight,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+                SizedBox(height: 24.h),
+                Text(
+                  'Send Photo',
+                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 24.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildPhotoOption(
+                      icon: Icons.camera_alt_rounded,
+                      label: 'Camera',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickPhoto(ImageSource.camera);
+                      },
+                    ),
+                    _buildPhotoOption(
+                      icon: Icons.photo_library_rounded,
+                      label: 'Gallery',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickPhoto(ImageSource.gallery);
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: REdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: ColorsManager.purpleSoft,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: ColorsManager.purple, size: 28.sp),
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+      );
+
+      if (image != null && mounted) {
+        print('Photo picked: ${image.path}');
+        UiUtils.showLoading(context, false);
+        
+        try {
+          final photoFile = File(image.path);
+          print('File exists: ${await photoFile.exists()}');
+          print('File size: ${await photoFile.length()} bytes');
+          
+          await FirebaseService.sendPhotoMessage(widget.chatId, photoFile);
+          if (mounted) {
+            UiUtils.hideDialog(context);
+            UiUtils.showToastMessage('Photo sent!', Colors.green);
+          }
+        } catch (uploadError) {
+          print('Upload error details: $uploadError');
+          if (mounted) {
+            UiUtils.hideDialog(context);
+            UiUtils.showToastMessage('Upload failed: ${uploadError.toString()}', Colors.red);
+          }
+        }
+      }
+    } catch (e) {
+      print('Error picking photo: $e');
+      if (mounted) {
+        UiUtils.showToastMessage('Failed to pick photo', Colors.red);
+      }
+    }
+  }
+
   void _sendMessage() {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -467,6 +616,8 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isPhoto = message.messageType == MessageType.photo;
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -475,7 +626,7 @@ class MessageBubble extends StatelessWidget {
           left: isMe ? 60 : 0,
           right: isMe ? 0 : 60,
         ),
-        padding: REdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: isPhoto ? REdgeInsets.all(4) : REdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           gradient: isMe
               ? const LinearGradient(
@@ -507,36 +658,107 @@ class MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              message.content,
-              style: TextStyle(
-                color: isMe ? Colors.white : ColorsManager.black,
-                fontSize: 14.sp,
-                height: 1.4,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatTime(message.timestamp),
-                  style: TextStyle(
-                    fontSize: 10.sp,
-                    color: isMe ? Colors.white60 : ColorsManager.grey,
+            if (isPhoto && message.photoUrl != null)
+              GestureDetector(
+                onTap: () => _showPhotoViewer(context, message.photoUrl!),
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: 200.w,
+                    maxHeight: 250.h,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16.r),
+                    child: Image.network(
+                      message.photoUrl!,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return Container(
+                          width: 200.w,
+                          height: 200.h,
+                          color: isMe ? Colors.white.withOpacity(0.1) : ColorsManager.greyUltraLight,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: progress.expectedTotalBytes != null
+                                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                  : null,
+                              color: isMe ? Colors.white : ColorsManager.purple,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 200.w,
+                        height: 200.h,
+                        color: isMe ? Colors.white.withOpacity(0.1) : ColorsManager.greyUltraLight,
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          color: isMe ? Colors.white60 : ColorsManager.grey,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                if (isMe) ...[
-                  SizedBox(width: 4.w),
-                  Icon(
-                    message.isRead ? Icons.done_all_rounded : Icons.done_rounded,
-                    size: 14.sp,
-                    color: message.isRead ? Colors.white : Colors.white60,
+              )
+            else
+              Text(
+                message.content,
+                style: TextStyle(
+                  color: isMe ? Colors.white : ColorsManager.black,
+                  fontSize: 14.sp,
+                  height: 1.4,
+                ),
+              ),
+            SizedBox(height: 4.h),
+            Padding(
+              padding: isPhoto ? REdgeInsets.symmetric(horizontal: 8) : EdgeInsets.zero,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatTime(message.timestamp),
+                    style: TextStyle(
+                      fontSize: 10.sp,
+                      color: isMe ? Colors.white60 : ColorsManager.grey,
+                    ),
                   ),
+                  if (isMe) ...[
+                    SizedBox(width: 4.w),
+                    Icon(
+                      message.isRead ? Icons.done_all_rounded : Icons.done_rounded,
+                      size: 14.sp,
+                      color: message.isRead ? Colors.white : Colors.white60,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showPhotoViewer(BuildContext context, String photoUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(photoUrl),
+            ),
+          ),
         ),
       ),
     );
