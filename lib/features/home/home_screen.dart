@@ -173,11 +173,52 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ),
       actions: [
-        Container(
-          margin: REdgeInsets.only(right: 16),
-          child: ExchangeNotificationBadge(
-            onTap: () => Navigator.pushNamed(context, Routes.exchangesList),
-          ),
+        StreamBuilder<int>(
+          stream: FirebaseService.currentUser != null
+              ? FirebaseService.getUnreadNotificationsCountStream(
+                  FirebaseService.currentUser!.uid)
+              : Stream.value(0),
+          builder: (context, snapshot) {
+            final unreadCount = snapshot.data ?? 0;
+
+            return Padding(
+              padding: REdgeInsets.only(right: 16),
+              child: GestureDetector(
+                onTap: () => Navigator.pushNamed(context, Routes.notifications),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      padding: REdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      child: Icon(
+                        Icons.notifications_rounded,
+                        color: Colors.white,
+                        size: 20.sp,
+                      ),
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: Container(
+                          width: 10.w,
+                          height: 10.w,
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -341,6 +382,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       ),
                       SizedBox(height: 12.h),
+
+                      _buildDrawerItem(
+                        icon: Icons.swap_horizontal_circle_rounded,
+                        title: 'My Exchanges',
+                        subtitle: 'View all exchanges',
+                        trailing: ExchangeNotificationBadge(
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.pushNamed(context, Routes.exchangesList);
+                          },
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, Routes.exchangesList);
+                        },
+                      ),
 
                       _buildDrawerItem(
                         icon: Icons.refresh_rounded,
@@ -1133,9 +1190,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showFilterSheet() {
-    // Remove this method - not needed anymore
-  }
+
 
   void _showLocationPermissionDialog() {
     showDialog(

@@ -14,6 +14,7 @@ import 'package:barter/features/account/owner_profile_screen.dart';
 import 'package:barter/features/saved_items/saved_items_screen.dart';
 import 'package:barter/features/splash/splash_screen.dart';
 import 'package:barter/features/onboarding/onboarding_screen.dart';
+import 'package:barter/features/notifications/notifications_screen.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -125,6 +126,11 @@ class RoutesManager {
           );
         }
         return unDefinedRoute();
+
+      case Routes.notifications:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationsScreen(),
+        );
 
       default:
         return unDefinedRoute();

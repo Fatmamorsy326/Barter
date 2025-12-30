@@ -4,6 +4,7 @@ import 'package:barter/model/chat_model.dart';
 import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
+import 'package:barter/model/notification_model.dart';
 import 'package:barter/services/image_upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -620,6 +621,72 @@ class FirebaseService {
     }
   }
 
+  // ==================== NOTIFICATIONS ====================
+
+  static Future<void> createNotification({
+    required String userId,
+    required String title,
+    required String body,
+    required NotificationType type,
+    String? relatedId,
+  }) async {
+    try {
+      final notification = NotificationModel(
+        id: '',
+        userId: userId,
+        title: title,
+        body: body,
+        type: type,
+        relatedId: relatedId,
+        createdAt: DateTime.now(),
+      );
+
+      final docRef = await _firestore.collection('notifications').add(notification.toJson());
+      await docRef.update({'id': docRef.id});
+    } catch (e) {
+      print('Error creating notification: $e');
+    }
+  }
+
+  static Stream<List<NotificationModel>> getUserNotificationsStream(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationModel.fromJson(doc.data()))
+            .toList())
+        .handleError((e) {
+      print('Error getting notifications: $e');
+      return <NotificationModel>[];
+    });
+  }
+
+  static Stream<int> getUnreadNotificationsCountStream(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length)
+        .handleError((e) {
+      print('Error getting unread notifications count: $e');
+      return 0;
+    });
+  }
+
+  static Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _firestore
+          .collection('notifications')
+          .doc(notificationId)
+          .update({'isRead': true});
+    } catch (e) {
+      print('Error marking notification as read: $e');
+    }
+  }
+
   // ==================== EXCHANGES (FIXED) ====================
 
   /// Create a new exchange proposal
@@ -658,6 +725,15 @@ class FirebaseService {
     await docRef.update({'id': docRef.id});
 
     print('Created exchange: ${docRef.id}');
+
+    // Notify the receiver
+    await createNotification(
+      userId: proposedTo,
+      title: 'New Exchange Request',
+      body: 'You have a new exchange request!',
+      type: NotificationType.exchangeRequest,
+      relatedId: docRef.id,
+    );
 
     return docRef.id;
   }
@@ -707,6 +783,15 @@ class FirebaseService {
     await batch.commit();
 
     print('Marked items as unavailable: $itemOfferedIds, $itemRequestedIds');
+
+    // Notify the proposer
+    await createNotification(
+      userId: data['proposedBy'],
+      title: 'Exchange Accepted',
+      body: 'Your exchange request has been accepted!',
+      type: NotificationType.exchangeAccepted,
+      relatedId: exchangeId,
+    );
   }
 
   /// Reject/Cancel an exchange
@@ -756,6 +841,20 @@ class FirebaseService {
     await _firestore.collection('exchanges').doc(exchangeId).update({
       'status': 3, // ExchangeStatus.cancelled
     });
+
+    // Notify the other party
+    final currentUserId = currentUser!.uid;
+    final otherUserId = data['proposedBy'] == currentUserId
+        ? data['proposedTo']
+        : data['proposedBy'];
+
+    await createNotification(
+      userId: otherUserId,
+      title: 'Exchange Cancelled',
+      body: 'An exchange request was cancelled.',
+      type: NotificationType.exchangeCancelled,
+      relatedId: exchangeId,
+    );
   }
 
   /// Confirm exchange completion by a user
@@ -780,6 +879,34 @@ class FirebaseService {
         'status': bothConfirmed ? 2 : 1, // completed : accepted
         'completedAt': bothConfirmed ? DateTime.now().toIso8601String() : null,
       });
+
+      // Notify the other party that you confirmed
+      final otherUserId = proposedBy == userId ? proposedTo : proposedBy;
+      await createNotification(
+        userId: otherUserId,
+        title: 'Exchange Confirmation',
+        body: 'The other party has confirmed the exchange completion.',
+        type: NotificationType.exchangeCompleted, // Use generic type for now
+        relatedId: exchangeId,
+      );
+
+      if (bothConfirmed) {
+        // Notify both that it is fully completed
+        await createNotification(
+          userId: proposedBy,
+          title: 'Exchange Completed',
+          body: 'The exchange has been successfully completed!',
+          type: NotificationType.exchangeCompleted,
+          relatedId: exchangeId,
+        );
+        await createNotification(
+          userId: proposedTo,
+          title: 'Exchange Completed',
+          body: 'The exchange has been successfully completed!',
+          type: NotificationType.exchangeCompleted,
+          relatedId: exchangeId,
+        );
+      }
     }
   }
 
