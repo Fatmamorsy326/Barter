@@ -200,7 +200,11 @@ class _RegisterState extends State<Register> {
       //     password: passwordController.text,
       //   ),
       // );
-      await FirebaseService.signUp(emailController.text.trim(),passwordController.text );
+      await FirebaseService.signUp(
+        emailController.text.trim(),
+        passwordController.text,
+        nameController.text.trim(),
+      );
 
       // Hide loading
       if (mounted) UiUtils.hideDialog(context);

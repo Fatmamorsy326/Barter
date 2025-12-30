@@ -24,6 +24,7 @@ class _ItemsMapViewScreenState extends State<ItemsMapViewScreen> {
   LatLng? _currentLocation;
   bool _isLoadingLocation = true;
   double _radiusKm = 10.0;
+  int _refreshKey = 0; // Add this to force marker refresh
 
   @override
   void initState() {
@@ -114,7 +115,10 @@ class _ItemsMapViewScreenState extends State<ItemsMapViewScreen> {
   }
 
   void _updateRadius(double newRadius) {
-    setState(() => _radiusKm = newRadius);
+    setState(() {
+      _radiusKm = newRadius;
+      _refreshKey++; // Force refresh
+    });
     _createMarkers();
   }
 
@@ -124,6 +128,7 @@ class _ItemsMapViewScreenState extends State<ItemsMapViewScreen> {
 
     return Scaffold(
       body: Stack(
+        key: ValueKey('map_$_radiusKm$_refreshKey'), // Force rebuild when radius changes
         children: [
           // Map
           GoogleMap(
@@ -468,57 +473,161 @@ class _ItemsMapViewScreenState extends State<ItemsMapViewScreen> {
   }
 
   void _showFilterDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ColorsManager.cardFor(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.r),
-        ),
-        title: Text(
-          'Filter by Distance',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: ColorsManager.textFor(context),
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Show items within ${_radiusKm.toStringAsFixed(0)} km',
-              style: TextStyle(
-                fontSize: 14.sp,
-                color: ColorsManager.textSecondaryFor(context),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        double tempRadius = _radiusKm;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: ColorsManager.cardFor(context),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
               ),
-            ),
-            Slider(
-              value: _radiusKm,
-              min: 1,
-              max: 50,
-              divisions: 49,
-              label: '${_radiusKm.toStringAsFixed(0)} km',
-              activeColor: ColorsManager.purple,
-              onChanged: (value) {
-                setState(() => _radiusKm = value);
-                _createMarkers();
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Close',
-              style: TextStyle(
-                color: ColorsManager.purple,
-                fontWeight: FontWeight.w600,
+              child: SafeArea(
+                child: Padding(
+                  padding: REdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40.w,
+                          height: 4.h,
+                          decoration: BoxDecoration(
+                            color: ColorsManager.dividerFor(context),
+                            borderRadius: BorderRadius.circular(2.r),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+
+                      Row(
+                        children: [
+                          Container(
+                            padding: REdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: ColorsManager.gradientFor(context),
+                              ),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Icon(
+                              Icons.radar,
+                              color: Colors.white,
+                              size: 20.sp,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Text(
+                            'Search Radius',
+                            style: TextStyle(
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.bold,
+                              color: ColorsManager.textFor(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 24.h),
+
+                      Container(
+                        padding: REdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: ColorsManager.purpleSoftFor(context),
+                          borderRadius: BorderRadius.circular(16.r),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: ColorsManager.purpleFor(context),
+                              size: 24.sp,
+                            ),
+                            SizedBox(width: 8.w),
+                            Text(
+                              '${tempRadius.toStringAsFixed(0)} km',
+                              style: TextStyle(
+                                fontSize: 32.sp,
+                                fontWeight: FontWeight.w900,
+                                color: ColorsManager.purpleFor(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+
+                      Row(
+                        children: [
+                          Text(
+                            '1 km',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: ColorsManager.textSecondaryFor(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              value: tempRadius,
+                              min: 1,
+                              max: 50,
+                              divisions: 49,
+                              activeColor: ColorsManager.purple,
+                              inactiveColor: ColorsManager.dividerFor(context),
+                              onChanged: (value) {
+                                setModalState(() => tempRadius = value);
+                              },
+                            ),
+                          ),
+                          Text(
+                            '50 km',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: ColorsManager.textSecondaryFor(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 24.h),
+
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _updateRadius(tempRadius);
+                            Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ColorsManager.purple,
+                            foregroundColor: Colors.white,
+                            padding: REdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                          ),
+                          child: Text(
+                            'Apply Radius',
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }

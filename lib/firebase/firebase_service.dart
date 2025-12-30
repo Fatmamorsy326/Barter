@@ -47,10 +47,10 @@ class FirebaseService {
       email: email,
       password: password,
     );
-    
+
     // Ensure user document exists
     await ensureUserDocument();
-    
+
     return credential;
   }
 
@@ -269,11 +269,11 @@ class FirebaseService {
       final chats = snapshot.docs.map((doc) {
         final data = doc.data();
         data['chatId'] = doc.id;
-        
+
         // Extract unread count for current user
         final unreadCounts = Map<String, dynamic>.from(data['unreadCounts'] ?? {});
         data['unreadCount'] = unreadCounts[userId] ?? 0;
-        
+
         return ChatModel.fromJson(data);
       }).toList();
 
@@ -290,7 +290,7 @@ class FirebaseService {
   static Future<void> sendMessage(String chatId, String content) async
   {
     final currentUserId = currentUser!.uid;
-    
+
     final messageData = {
       'senderId': currentUserId,
       'content': content,
@@ -307,10 +307,10 @@ class FirebaseService {
     // Get the chat document to find the other participant
     final chatDoc = await _firestore.collection('chats').doc(chatId).get();
     final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
-    
+
     // Find the other user ID
     final otherUserId = participants.firstWhere(
-      (id) => id != currentUserId, 
+          (id) => id != currentUserId,
       orElse: () => '',
     );
 
@@ -330,10 +330,10 @@ class FirebaseService {
 
   static Future<void> sendPhotoMessage(String chatId, File photoFile) async {
     final currentUserId = currentUser!.uid;
-    
+
     // Upload photo to ImgBB
     final photoUrl = await ImageUploadService.uploadImage(photoFile);
-    
+
     final messageData = {
       'senderId': currentUserId,
       'content': 'Photo',
@@ -352,10 +352,10 @@ class FirebaseService {
     // Get the chat document to find the other participant
     final chatDoc = await _firestore.collection('chats').doc(chatId).get();
     final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
-    
+
     // Find the other user ID
     final otherUserId = participants.firstWhere(
-      (id) => id != currentUserId, 
+          (id) => id != currentUserId,
       orElse: () => '',
     );
 
@@ -695,11 +695,11 @@ class FirebaseService {
 
     // Mark all items as unavailable
     final batch = _firestore.batch();
-    
+
     for (final id in itemOfferedIds) {
       batch.update(_firestore.collection('items').doc(id), {'isAvailable': false});
     }
-    
+
     for (final id in itemRequestedIds) {
       batch.update(_firestore.collection('items').doc(id), {'isAvailable': false});
     }
@@ -738,11 +738,11 @@ class FirebaseService {
 
       // Make all items available again
       final batch = _firestore.batch();
-      
+
       for (final id in itemOfferedIds) {
         batch.update(_firestore.collection('items').doc(id), {'isAvailable': true});
       }
-      
+
       for (final id in itemRequestedIds) {
         batch.update(_firestore.collection('items').doc(id), {'isAvailable': true});
       }
@@ -907,7 +907,7 @@ class FirebaseService {
       // Note: For full multi-item support in queries, we'd need to query against arrays
       // but Firestore doesn't support array-contains-any on objects easily.
       // For now, this covers the legacy cases and primary item cases.
-      
+
       final allDocs = [...offeredSnapshot.docs, ...requestedSnapshot.docs];
       final uniqueIds = <String>{};
       final uniqueDocs = allDocs.where((doc) {
