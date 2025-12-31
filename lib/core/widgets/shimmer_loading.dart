@@ -81,14 +81,13 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius.r),
             gradient: LinearGradient(
               begin: Alignment(_animation.value - 1, 0),
               end: Alignment(_animation.value + 1, 0),
-              colors: const [
-                ColorsManager.shimmerBase,
-                ColorsManager.shimmerHighlight,
-                ColorsManager.shimmerBase,
+              colors: [
+                ColorsManager.shimmerBaseFor(context),
+                ColorsManager.shimmerHighlightFor(context),
+                ColorsManager.shimmerBaseFor(context),
               ],
               stops: const [0.0, 0.5, 1.0],
             ),
@@ -108,11 +107,11 @@ class ShimmerItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: ColorsManager.cardFor(context),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: ColorsManager.shadow,
+            color: ColorsManager.shadowFor(context),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
