@@ -1,6 +1,8 @@
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/widgets/unread_messages_badge.dart';
+import 'package:barter/core/widgets/login_required_sheet.dart';
+import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/features/account/account_screen.dart';
 import 'package:barter/features/chat/chat_list_screen.dart';
 import 'package:barter/features/home/home_screen.dart';
@@ -264,12 +266,32 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onTap(int index) {
+    if (index != 0 && FirebaseService.currentUser == null) {
+      String feature = '';
+      switch (index) {
+        case 1:
+          feature = AppLocalizations.of(context)!.chat;
+          break;
+        case 2:
+          feature = AppLocalizations.of(context)!.my_listing;
+          break;
+        case 3:
+          feature = AppLocalizations.of(context)!.account;
+          break;
+      }
+      LoginRequiredSheet.show(context, feature);
+      return;
+    }
     setState(() {
       _currentIndex = index;
     });
   }
 
   void _createItem() {
-    Navigator.pushNamed(context, Routes.addItem);
+    if (FirebaseService.currentUser == null) {
+      LoginRequiredSheet.show(context, 'Add Item');
+    } else {
+      Navigator.pushNamed(context, Routes.addItem);
+    }
   }
 }

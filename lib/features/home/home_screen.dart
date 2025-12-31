@@ -5,6 +5,7 @@ import 'package:barter/core/widgets/exchange_notification_badge.dart';
 import 'package:barter/core/widgets/item_card.dart';
 import 'package:barter/core/widgets/shimmer_loading.dart';
 import 'package:barter/features/map/item_map_view_screen.dart';
+import 'package:barter/core/widgets/login_required_sheet.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/item_model.dart';
@@ -184,7 +185,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             return Padding(
               padding: REdgeInsets.only(right: 16),
               child: GestureDetector(
-                onTap: () => Navigator.pushNamed(context, Routes.notifications),
+                onTap: () {
+                  if (FirebaseService.currentUser == null) {
+                    LoginRequiredSheet.show(context, 'Notifications');
+                  } else {
+                    Navigator.pushNamed(context, Routes.notifications);
+                  }
+                },
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -388,14 +395,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         title: 'My Exchanges',
                         subtitle: 'View all exchanges',
                         trailing: ExchangeNotificationBadge(
-                          onTap: () {
+                        onTap: () {
+                          if (FirebaseService.currentUser == null) {
+                            LoginRequiredSheet.show(context, 'My Exchanges');
+                          } else {
                             Navigator.pop(context);
                             Navigator.pushNamed(context, Routes.exchangesList);
-                          },
+                          }
+                        },
                         ),
                         onTap: () {
-                          Navigator.pop(context);
-                          Navigator.pushNamed(context, Routes.exchangesList);
+                          if (FirebaseService.currentUser == null) {
+                            LoginRequiredSheet.show(context, 'My Exchanges');
+                          } else {
+                            Navigator.pop(context);
+                            Navigator.pushNamed(context, Routes.exchangesList);
+                          }
                         },
                       ),
 

@@ -5,6 +5,7 @@
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/ui_utils.dart';
+import 'package:barter/core/widgets/login_required_sheet.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/exchange_model.dart';
@@ -513,8 +514,7 @@ Location: ${widget.item.location}
     final userId = FirebaseService.currentUser?.uid;
 
     if (userId == null) {
-      UiUtils.showToastMessage('Please login first', Colors.red);
-      Navigator.pushNamed(context, Routes.login);
+      LoginRequiredSheet.show(context, 'Favorite Items');
       return;
     }
 
@@ -549,8 +549,7 @@ Location: ${widget.item.location}
     final currentUser = FirebaseService.currentUser;
 
     if (currentUser == null) {
-      UiUtils.showToastMessage('Please login first', Colors.red);
-      Navigator.pushReplacementNamed(context, Routes.login);
+      LoginRequiredSheet.show(context, 'Proposing Exchanges');
       return;
     }
 
