@@ -9,6 +9,7 @@ import 'package:barter/services/image_upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class FirebaseService {
@@ -20,13 +21,6 @@ class FirebaseService {
   static User? get currentUser => _auth.currentUser;
 
   // ==================== AUTH ====================
-  // Update your FirebaseService class with these corrected methods:
-// Replace ONLY the auth section in your firebase_service.dart
-
-// ==================== AUTH ====================
-
-  // ==================== FIREBASE SERVICE ====================
-// Replace your signUp method with this:
 
   static Future<UserCredential> signUp(
       String email,
@@ -73,7 +67,6 @@ class FirebaseService {
     return credential;
   }
 
-// Update _createUserDocument:
   static Future<void> _createUserDocument(User user, String name) async {
     print('🔵 FIREBASE: _createUserDocument called');
     print('🔵 FIREBASE: Name parameter = $name');
@@ -96,7 +89,6 @@ class FirebaseService {
     print('✅ FIREBASE: User document saved successfully');
   }
 
-// CRITICAL: Fix ensureUserDocument to NOT overwrite if document exists
   static Future<void> ensureUserDocument() async {
     final user = currentUser;
     if (user == null) return;
@@ -147,11 +139,47 @@ class FirebaseService {
     return credential;
   }
 
-// Ensure user document exists
-  // In your FirebaseService class, update ensureUserDocument:
+  static Future<UserCredential?> signInWithGoogle() async {
+    try {
+      print('🔵 FIREBASE: Google Sign-In started');
+      
+      // Force account selection picker by signing out first
+      await _googleSignIn.signOut();
+      
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        print('⚠️ FIREBASE: Google Sign-In cancelled by user');
+        return null;
+      }
+      
+      print('✅ FIREBASE: Google user obtained: ${googleUser.email}');
 
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
-// Also update your getUserById to include debug logging:
+      // Create a new credential
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Once signed in, return the UserCredential
+      final userCredential = await _auth.signInWithCredential(credential);
+      
+      print('✅ FIREBASE: Firebase authentication successful');
+      
+      // Ensure user document exists (captures profile info from Google)
+      await ensureUserDocument();
+      
+      return userCredential;
+    } catch (e) {
+      print('❌ FIREBASE: Error in signInWithGoogle: $e');
+      rethrow;
+    }
+  }
+
   static Future<UserModel?> getUserById(String uid) async {
     try {
       print('🔍 Getting user from Firestore: $uid');
@@ -170,7 +198,6 @@ class FirebaseService {
       return null;
     }
   }
-// ==================== AUTH ====================
 
 
   static Future<void> logout() async {
@@ -1138,11 +1165,6 @@ class FirebaseService {
       return [];
     }
   }
-
-
-  // ============================================
-// ADD THESE METHODS TO YOUR FirebaseService CLASS
-// ============================================
 
   // ==================== LOCATION-BASED QUERIES ====================
 

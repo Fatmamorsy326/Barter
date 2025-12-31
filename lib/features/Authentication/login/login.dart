@@ -29,6 +29,7 @@ class _LoginState extends State<Login> {
   GlobalKey<FormState> loginFormKey = GlobalKey<FormState>();
   late TextEditingController emailController;
   late TextEditingController passwordController;
+  bool _isLoading = false;
 
   void togglePasswordVisibility() {
     setState(() {
@@ -154,7 +155,7 @@ class _LoginState extends State<Login> {
               ),
               SizedBox(height: 16.h),
               OutlinedButton(
-                onPressed: _loginWithGoogle,
+                onPressed: _isLoading ? null : _loginWithGoogle,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -297,7 +298,58 @@ class _LoginState extends State<Login> {
   }
 
   Future<void> _loginWithGoogle() async {
-    UiUtils.showToastMessage('Google Sign-In coming soon!', Colors.orange);
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    UiUtils.showLoading(context, false);
+    try {
+      final credential = await FirebaseService.signInWithGoogle();
+      
+      if (mounted) UiUtils.hideDialog(context);
+
+      if (credential != null) {
+        UiUtils.showToastMessage(
+          AppLocalizations.of(context)!.logged_in_successfully,
+          Colors.green,
+        );
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, Routes.mainLayout);
+        }
+      } else {
+        // User cancelled or null credential
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) UiUtils.hideDialog(context);
+      print('Google login error: $e');
+
+      // Check if user is actually logged in despite the error
+      if (FirebaseService.currentUser != null) {
+        UiUtils.showToastMessage(
+          AppLocalizations.of(context)!.logged_in_successfully,
+          Colors.green,
+        );
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, Routes.mainLayout);
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        UiUtils.showToastMessage('Google Sign-In failed. Please try again.', Colors.red);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _continueAsGuest() {
