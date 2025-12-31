@@ -19,29 +19,120 @@ class FirebaseService {
   static User? get currentUser => _auth.currentUser;
 
   // ==================== AUTH ====================
+  // Update your FirebaseService class with these corrected methods:
+// Replace ONLY the auth section in your firebase_service.dart
 
-  static Future<UserCredential> signUp(String email, String password, String name) async {
+// ==================== AUTH ====================
+
+  // ==================== FIREBASE SERVICE ====================
+// Replace your signUp method with this:
+
+  static Future<UserCredential> signUp(
+      String email,
+      String password,
+      String name,
+      ) async {
+    print('🔵 FIREBASE: signUp called');
+    print('🔵 FIREBASE: Email = $email');
+    print('🔵 FIREBASE: Name = $name');
+
+    // Step 1: Create Firebase Auth account
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
-    await _createUserDocument(credential.user!, name);
+
+    print('✅ FIREBASE: Auth account created');
+
+    try {
+      // Step 2: Update displayName FIRST (before any errors)
+      await credential.user!.updateDisplayName(name);
+      print('✅ FIREBASE: DisplayName updated to: $name');
+
+      // Step 3: Create Firestore document with the name
+      await _createUserDocument(credential.user!, name);
+      print('✅ FIREBASE: User document created');
+    } catch (e) {
+      print('❌ FIREBASE: Error in post-signup steps: $e');
+      // Even if there's an error, the account is created
+      // Let's ensure the document exists with the correct name
+      try {
+        await _firestore.collection('users').doc(credential.user!.uid).set({
+          'uid': credential.user!.uid,
+          'email': credential.user!.email ?? '',
+          'name': name, // Use the name parameter directly
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+        print('✅ FIREBASE: User document created (fallback)');
+      } catch (e2) {
+        print('❌ FIREBASE: Fallback document creation failed: $e2');
+      }
+    }
+
     return credential;
   }
 
+// Update _createUserDocument:
   static Future<void> _createUserDocument(User user, String name) async {
+    print('🔵 FIREBASE: _createUserDocument called');
+    print('🔵 FIREBASE: Name parameter = $name');
+
     final userModel = UserModel(
       uid: user.uid,
       email: user.email ?? '',
-      name: name,
+      name: name, // Use parameter directly
       createdAt: DateTime.now(),
     );
+
+    print('🔵 FIREBASE: UserModel created with name: ${userModel.name}');
+    print('🔵 FIREBASE: Saving to Firestore...');
 
     await _firestore
         .collection('users')
         .doc(user.uid)
         .set(userModel.toJson());
+
+    print('✅ FIREBASE: User document saved successfully');
   }
+
+// CRITICAL: Fix ensureUserDocument to NOT overwrite if document exists
+  static Future<void> ensureUserDocument() async {
+    final user = currentUser;
+    if (user == null) return;
+
+    try {
+      print('🔍 FIREBASE: Checking if user document exists for ${user.uid}');
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+
+      if (!userDoc.exists) {
+        print('⚠️ FIREBASE: User document missing');
+
+        // IMPORTANT: Check displayName first, then email
+        final name = user.displayName?.trim();
+
+        if (name != null && name.isNotEmpty) {
+          print('✅ FIREBASE: Using displayName: $name');
+          await _createUserDocument(user, name);
+        } else {
+          print('⚠️ FIREBASE: displayName is null, using email prefix');
+          final emailName = user.email?.split('@').first ?? 'User';
+          await _createUserDocument(user, emailName);
+        }
+      } else {
+        final existingName = userDoc.data()?['name'];
+        print('✅ FIREBASE: User document exists with name: $existingName');
+
+        // Optional: Sync displayName from Firestore to Auth if they differ
+        if (user.displayName != existingName && existingName != null) {
+          print('🔄 FIREBASE: Syncing displayName to Auth: $existingName');
+          await user.updateDisplayName(existingName);
+        }
+      }
+    } catch (e) {
+      print('❌ FIREBASE: Error in ensureUserDocument: $e');
+    }
+  }
+
 
   static Future<UserCredential> signIn(String email, String password) async {
     final credential = await _auth.signInWithEmailAndPassword(
@@ -55,26 +146,31 @@ class FirebaseService {
     return credential;
   }
 
-  // Ensure user document exists
-  static Future<void> ensureUserDocument() async {
-    final user = currentUser;
-    if (user == null) return;
+// Ensure user document exists
+  // In your FirebaseService class, update ensureUserDocument:
 
+
+// Also update your getUserById to include debug logging:
+  static Future<UserModel?> getUserById(String uid) async {
     try {
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      print('🔍 Getting user from Firestore: $uid');
+      final doc = await _firestore.collection('users').doc(uid).get();
 
-      if (!userDoc.exists) {
-        await _createUserDocument(
-          user,
-          user.displayName ?? user.email
-              ?.split('@')
-              .first ?? 'User',
-        );
+      if (doc.exists && doc.data() != null) {
+        final user = UserModel.fromJson(doc.data()!);
+        print('✅ Found user in Firestore: ${user.name}');
+        return user;
       }
+
+      print('⚠️ User document not found in Firestore');
+      return null;
     } catch (e) {
-      print('Warning: ensureUserDocument failed: $e');
+      print('❌ Error getting user: $e');
+      return null;
     }
   }
+// ==================== AUTH ====================
+
 
   static Future<void> logout() async {
     await _auth.signOut();
@@ -86,18 +182,6 @@ class FirebaseService {
 
   // ==================== USER ====================
 
-  static Future<UserModel?> getUserById(String uid) async {
-    try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      if (doc.exists && doc.data() != null) {
-        return UserModel.fromJson(doc.data()!);
-      }
-      return null;
-    } catch (e) {
-      print('Error getting user: $e');
-      return null;
-    }
-  }
 
   static Future<void> updateUser(UserModel user) async {
     await _firestore.collection('users').doc(user.uid).update(user.toJson());
@@ -773,11 +857,11 @@ class FirebaseService {
     final batch = _firestore.batch();
 
     for (final id in itemOfferedIds) {
-      batch.update(_firestore.collection('items').doc(id), {'isAvailable': false});
+      batch.update(_firestore.collection('items').doc(id), {'isAvailable': false, 'isExchanged': true});
     }
 
     for (final id in itemRequestedIds) {
-      batch.update(_firestore.collection('items').doc(id), {'isAvailable': false});
+      batch.update(_firestore.collection('items').doc(id), {'isAvailable': false, 'isExchanged': true});
     }
 
     await batch.commit();
@@ -825,11 +909,11 @@ class FirebaseService {
       final batch = _firestore.batch();
 
       for (final id in itemOfferedIds) {
-        batch.update(_firestore.collection('items').doc(id), {'isAvailable': true});
+        batch.update(_firestore.collection('items').doc(id), {'isAvailable': true, 'isExchanged': false});
       }
 
       for (final id in itemRequestedIds) {
-        batch.update(_firestore.collection('items').doc(id), {'isAvailable': true});
+        batch.update(_firestore.collection('items').doc(id), {'isAvailable': true, 'isExchanged': false});
       }
 
       await batch.commit();

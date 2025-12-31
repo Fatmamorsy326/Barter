@@ -31,6 +31,8 @@ class _AccountScreenState extends State<AccountScreen> {
     _loadUserData();
   }
 
+// Replace the _loadUserData method in your AccountScreen
+
   Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
@@ -48,24 +50,34 @@ class _AccountScreenState extends State<AccountScreen> {
         return;
       }
 
+      // ALWAYS try to get user from Firestore first
       UserModel? user = await FirebaseService.getUserById(currentUser.uid);
 
+      // If user document doesn't exist in Firestore, create it
       if (user == null) {
-        user = UserModel(
-          uid: currentUser.uid,
-          name: currentUser.displayName ??
-              currentUser.email?.split('@').first ??
-              'User',
-          email: currentUser.email ?? '',
-          photoUrl: currentUser.photoURL,
-          createdAt: currentUser.metadata.creationTime ?? DateTime.now(),
-        );
+        print('⚠️ User document not found in Firestore, creating...');
 
-        try {
-          await FirebaseService.ensureUserDocument();
-        } catch (e) {
-          print('Could not create user document: $e');
+        // Ensure user document is created
+        await FirebaseService.ensureUserDocument();
+
+        // Try to get it again
+        user = await FirebaseService.getUserById(currentUser.uid);
+
+        // If still null, create fallback with displayName priority
+        if (user == null) {
+          print('⚠️ Still no user document, using fallback');
+          user = UserModel(
+            uid: currentUser.uid,
+            name: currentUser.displayName ??
+                currentUser.email?.split('@').first ??
+                'User',
+            email: currentUser.email ?? '',
+            photoUrl: currentUser.photoURL,
+            createdAt: currentUser.metadata.creationTime ?? DateTime.now(),
+          );
         }
+      } else {
+        print('✅ User loaded from Firestore: ${user.name}');
       }
 
       setState(() {
@@ -73,10 +85,12 @@ class _AccountScreenState extends State<AccountScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading user data: $e');
+      print('❌ Error loading user data: $e');
 
+      // Only use fallback if Firestore completely fails
       final currentUser = FirebaseService.currentUser;
       if (currentUser != null) {
+        print('⚠️ Using fallback user data');
         setState(() {
           _user = UserModel(
             uid: currentUser.uid,

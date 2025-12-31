@@ -197,13 +197,21 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
+                    Icon(
+                      Icons.delete,
+                      color: widget.item.isExchanged ? Colors.grey : Colors.red,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Delete',
+                      style: TextStyle(
+                        color: widget.item.isExchanged ? Colors.grey : Colors.red,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -651,6 +659,21 @@ Location: ${widget.item.location}
 
 
   Future<void> _deleteItem() async {
+    if (widget.item.isExchanged) {
+      _showLockedDialog();
+      return;
+    }
+
+    // Async check for old data
+    UiUtils.showLoading(context, false);
+    final isLocked = await _checkIfInActiveExchange();
+    UiUtils.hideDialog(context);
+
+    if (isLocked) {
+      _showLockedDialog();
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -717,7 +740,7 @@ Location: ${widget.item.location}
 
       // Check if any exchange is active (accepted but not completed)
       final hasActiveExchange = exchanges.any((exchange) =>
-      exchange.status == ExchangeStatus.accepted
+          exchange.status == 1 || exchange.status == 2 // Accepted or Completed
       );
 
       print('Item ${widget.item.id} has active exchange: $hasActiveExchange');
@@ -795,6 +818,30 @@ Location: ${widget.item.location}
       print('Error toggling availability: $e');
       UiUtils.showToastMessage('Failed to update item', Colors.red);
     }
+  }
+
+  void _showLockedDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.lock_rounded, color: Colors.orange),
+            SizedBox(width: 8.w),
+            const Text('Cannot Delete Item'),
+          ],
+        ),
+        content: const Text(
+          'This item is part of a completed or active exchange and cannot be deleted to maintain exchange history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   // REPLACE your existing _buildOwnerBottomBar method with this:

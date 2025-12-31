@@ -38,16 +38,35 @@ class _AddItemScreenState extends State<AddItemScreen> {
   double? _latitude;
   double? _longitude;
   String? _detailedAddress;
+  bool _dynamicExchangedStatus = false;
+
+  bool get _isEditable =>
+      _isEditing ? (!widget.itemToEdit!.isExchanged && !_dynamicExchangedStatus) : true;
 
   @override
   void initState() {
     super.initState();
     if (_isEditing) {
       _loadItemData();
+      _checkExchangeStatus();
     }
   }
 
 
+
+  Future<void> _checkExchangeStatus() async {
+    try {
+      final exchanges = await FirebaseService.getItemExchanges(widget.itemToEdit!.id);
+      // Check for Accepted (1) or Completed (2) status
+      final isLocked = exchanges.any((e) => e.status == 1 || e.status == 2);
+      
+      if (mounted && isLocked != _dynamicExchangedStatus) {
+        setState(() => _dynamicExchangedStatus = isLocked);
+      }
+    } catch (e) {
+      print('Error checking exchange status: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -73,6 +92,33 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (!_isEditable)
+                      Container(
+                        width: double.infinity,
+                        margin: REdgeInsets.only(bottom: 24),
+                        padding: REdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.lock_rounded, color: Colors.orange),
+                            SizedBox(width: 12.w),
+                            Expanded(
+                              child: Text(
+                                'This item is currently part of an active exchange and cannot be edited or deleted.',
+                                style: TextStyle(
+                                  fontSize: 13.sp,
+                                  color: Colors.orange[800],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     _buildImagePicker(),
                     SizedBox(height: 24.h),
                     _buildSectionTitle('Basic Information', Icons.info_outline_rounded),
@@ -279,6 +325,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   Widget _buildAddPhotoButton() {
+    if (!_isEditable) return SizedBox();
     return GestureDetector(
       onTap: _showImageSourceDialog,
       child: Container(
@@ -352,8 +399,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
         Positioned(
           top: 6,
           right: 18,
-          child: GestureDetector(
-            onTap: () => setState(() => _existingImageUrls.removeAt(index)),
+          child: _isEditable
+              ? GestureDetector(
+                  onTap: () => setState(() => _existingImageUrls.removeAt(index)),
             child: Container(
               padding: REdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -370,7 +418,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
               ),
               child: Icon(Icons.close_rounded, size: 14.sp, color: Colors.white),
             ),
-          ),
+          ) : const SizedBox(),
         ),
         if (index == 0)
           Positioned(
@@ -421,8 +469,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
         Positioned(
           top: 6,
           right: 18,
-          child: GestureDetector(
-            onTap: () => setState(() => _newImages.removeAt(index)),
+          child: _isEditable
+              ? GestureDetector(
+                  onTap: () => setState(() => _newImages.removeAt(index)),
             child: Container(
               padding: REdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -439,7 +488,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
               ),
               child: Icon(Icons.close_rounded, size: 14.sp, color: Colors.white),
             ),
-          ),
+          ) : const SizedBox(),
         ),
         if (isMain)
           Positioned(
@@ -580,6 +629,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         controller: _titleController,
         textCapitalization: TextCapitalization.words,
         textInputAction: TextInputAction.next,
+        readOnly: !_isEditable,
         style: TextStyle(fontSize: 15.sp),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
@@ -608,6 +658,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         controller: _descriptionController,
         maxLines: 4,
         textCapitalization: TextCapitalization.sentences,
+        readOnly: !_isEditable,
         style: TextStyle(fontSize: 15.sp),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
@@ -652,11 +703,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
             child: Text(cat.displayName),
           );
         }).toList(),
-        onChanged: (value) {
-          if (value != null) {
-            setState(() => _selectedCategory = value);
-          }
-        },
+        onChanged: _isEditable
+            ? (value) {
+                if (value != null) {
+                  setState(() => _selectedCategory = value);
+                }
+              }
+            : null,
       ),
     );
   }
@@ -680,11 +733,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
             child: Text(cond.displayName),
           );
         }).toList(),
-        onChanged: (value) {
-          if (value != null) {
-            setState(() => _selectedCondition = value);
-          }
-        },
+        onChanged: _isEditable
+            ? (value) {
+                if (value != null) {
+                  setState(() => _selectedCondition = value);
+                }
+              }
+            : null,
       ),
     );
   }
@@ -726,7 +781,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                   ),
                   child: Icon(Icons.map_rounded, color: ColorsManager.purple, size: 18.sp),
                 ),
-                onPressed: _pickLocationFromMap,
+                onPressed: _isEditable ? _pickLocationFromMap : null,
               ),
               border: InputBorder.none,
               contentPadding: REdgeInsets.symmetric(vertical: 8),
@@ -833,6 +888,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         textCapitalization: TextCapitalization.sentences,
         textInputAction: TextInputAction.done,
         maxLines: 2,
+        readOnly: !_isEditable,
         style: TextStyle(fontSize: 15.sp),
         decoration: InputDecoration(
           labelText: AppLocalizations.of(context)!.preferred_exchange,
@@ -853,19 +909,19 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   Widget _buildSubmitButton() {
     return GestureDetector(
-      onTap: _isLoading ? null : _submitItem,
+      onTap: _isLoading || !_isEditable ? null : _submitItem,
       child: Container(
         width: double.infinity,
         height: 56.h,
         decoration: BoxDecoration(
-          gradient: _isLoading
+          gradient: _isLoading || !_isEditable
               ? null
               : const LinearGradient(
                   colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
                 ),
-          color: _isLoading ? ColorsManager.greyLight : null,
+          color: _isLoading || !_isEditable ? ColorsManager.greyLight : null,
           borderRadius: BorderRadius.circular(16.r),
-          boxShadow: _isLoading
+          boxShadow: _isLoading || !_isEditable
               ? null
               : [
                   BoxShadow(

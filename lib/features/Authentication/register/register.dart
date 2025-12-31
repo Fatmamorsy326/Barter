@@ -11,6 +11,7 @@ import 'package:barter/features/Authentication/validation.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/register_request.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -182,29 +183,33 @@ class _RegisterState extends State<Register> {
     );
   }
 
+// In your register.dart, verify the createAccount method looks like this:
+
+  // Update your createAccount method in register.dart:
+
   Future<void> createAccount() async {
     // Validate form first
     if (regFormKey.currentState?.validate() == false) {
       return;
     }
 
+    // Get values BEFORE any async operations
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    print('🔵 REGISTER: Attempting to register');
+    print('🔵 REGISTER: Name = $name');
+    print('🔵 REGISTER: Email = $email');
+
     // Show loading
     UiUtils.showLoading(context, false);
 
     try {
-      // Create account with name included in request
-      // await FirebaseService.register(
-      //   RegisterRequest(
-      //     name: nameController.text.trim(),
-      //     email: emailController.text.trim(),
-      //     password: passwordController.text,
-      //   ),
-      // );
-      await FirebaseService.signUp(
-        emailController.text.trim(),
-        passwordController.text,
-        nameController.text.trim(),
-      );
+      // Call signUp
+      await FirebaseService.signUp(email, password, name);
+
+      print('✅ REGISTER: SignUp successful');
 
       // Hide loading
       if (mounted) UiUtils.hideDialog(context);
@@ -222,37 +227,51 @@ class _RegisterState extends State<Register> {
         Navigator.pushReplacementNamed(context, Routes.login);
       }
     } on FirebaseAuthException catch (e) {
+      print('❌ REGISTER: Firebase Auth Error: ${e.code}');
+
       // Hide loading
       if (mounted) UiUtils.hideDialog(context);
 
       // Show specific Firebase error
       String errorMessage = _getFirebaseErrorMessage(e.code);
       UiUtils.showToastMessage(errorMessage, Colors.red);
-    } on FirebaseException catch (e) {
-      // Hide loading
-      if (mounted) UiUtils.hideDialog(context);
 
-      // Check if user was actually created despite the error
-      if (FirebaseService.currentUser != null) {
-        UiUtils.showToastMessage(
-          AppLocalizations.of(context)!.registered_successfully,
-          Colors.green,
-        );
-        await FirebaseService.logout();
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, Routes.login);
-        }
-      } else {
-        String errorMessage = _getFirebaseErrorMessage(e.code ?? 'unknown');
-        UiUtils.showToastMessage(errorMessage, Colors.red);
-      }
     } catch (e) {
+      print('❌ REGISTER: General Error: $e');
+
       // Hide loading
       if (mounted) UiUtils.hideDialog(context);
 
-      // Check if user was actually created despite the error
-      if (FirebaseService.currentUser != null) {
-        // Registration actually succeeded, user exists
+      // Check if user was actually created
+      final currentUser = FirebaseService.currentUser;
+
+      if (currentUser != null) {
+        print('✅ REGISTER: User account created despite error');
+
+        // The account was created, so let's ensure the document exists
+        try {
+          // Force create the document with correct name
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .set({
+            'uid': currentUser.uid,
+            'email': email,
+            'name': name, // Use the original name variable
+            'createdAt': DateTime.now().toIso8601String(),
+          });
+
+          print('✅ REGISTER: User document created with correct name');
+
+          // Also update displayName
+          await currentUser.updateDisplayName(name);
+          print('✅ REGISTER: DisplayName updated');
+
+        } catch (docError) {
+          print('❌ REGISTER: Error creating document: $docError');
+        }
+
+        // Show success
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.registered_successfully,
           Colors.green,
@@ -260,12 +279,12 @@ class _RegisterState extends State<Register> {
 
         // Sign out and go to login
         await FirebaseService.logout();
+
         if (mounted) {
           Navigator.pushReplacementNamed(context, Routes.login);
         }
       } else {
-        // Actual failure
-        print('Register error: $e'); // For debugging
+        // Actual failure - no account created
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.failed_to_register,
           Colors.red,

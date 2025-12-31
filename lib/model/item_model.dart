@@ -107,6 +107,7 @@ class ItemModel {
   final String? detailedAddress; // NEW - Full address details
   final DateTime createdAt;
   final bool isAvailable;
+  final bool isExchanged; // NEW - Indicates if item was exchanged successfully
 
   ItemModel({
     required this.id,
@@ -124,6 +125,7 @@ class ItemModel {
     this.detailedAddress,
     required this.createdAt,
     this.isAvailable = true,
+    this.isExchanged = false,
   });
 
   factory ItemModel.fromJson(Map<String, dynamic> json) {
@@ -145,6 +147,7 @@ class ItemModel {
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
       isAvailable: json['isAvailable'] ?? true,
+      isExchanged: json['isExchanged'] ?? false,
     );
   }
 
@@ -165,6 +168,7 @@ class ItemModel {
       'detailedAddress': detailedAddress,
       'createdAt': createdAt.toIso8601String(),
       'isAvailable': isAvailable,
+      'isExchanged': isExchanged,
     };
   }
 
@@ -185,6 +189,7 @@ class ItemModel {
     String? detailedAddress,
     DateTime? createdAt,
     bool? isAvailable,
+    bool? isExchanged,
   }) {
     return ItemModel(
       id: id ?? this.id,
@@ -202,6 +207,7 @@ class ItemModel {
       detailedAddress: detailedAddress ?? this.detailedAddress,
       createdAt: createdAt ?? this.createdAt,
       isAvailable: isAvailable ?? this.isAvailable,
+      isExchanged: isExchanged ?? this.isExchanged,
     );
   }
 
