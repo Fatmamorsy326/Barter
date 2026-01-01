@@ -47,6 +47,10 @@ class FirebaseService {
       // Step 3: Create Firestore document with the name
       await _createUserDocument(credential.user!, name);
       print('✅ FIREBASE: User document created');
+
+      // Step 4: Send verification email
+      await credential.user?.sendEmailVerification();
+      print('✅ FIREBASE: Verification email sent to: ${credential.user?.email}');
     } catch (e) {
       print('❌ FIREBASE: Error in post-signup steps: $e');
       // Even if there's an error, the account is created
@@ -67,27 +71,6 @@ class FirebaseService {
     return credential;
   }
 
-  static Future<void> _createUserDocument(User user, String name) async {
-    print('🔵 FIREBASE: _createUserDocument called');
-    print('🔵 FIREBASE: Name parameter = $name');
-
-    final userModel = UserModel(
-      uid: user.uid,
-      email: user.email ?? '',
-      name: name, // Use parameter directly
-      createdAt: DateTime.now(),
-    );
-
-    print('🔵 FIREBASE: UserModel created with name: ${userModel.name}');
-    print('🔵 FIREBASE: Saving to Firestore...');
-
-    await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .set(userModel.toJson());
-
-    print('✅ FIREBASE: User document saved successfully');
-  }
 
   static Future<void> ensureUserDocument() async {
     final user = currentUser;
@@ -1458,5 +1441,214 @@ class FirebaseService {
           .where((item) => item.hasCoordinates)
           .toList();
     }
+  }
+  // ==================== FIREBASE SERVICE - EMAIL VERIFICATION ====================
+// Add these methods to your FirebaseService class
+
+// Send email verification
+  static Future<void> sendEmailVerification() async {
+    final user = currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    if (!user.emailVerified) {
+      await user.sendEmailVerification();
+      print('✅ Verification email sent to: ${user.email}');
+    } else {
+      print('⚠️ Email already verified');
+    }
+  }
+
+// Check if email is verified
+  static bool get isEmailVerified => currentUser?.emailVerified ?? false;
+
+// Reload user to check verification status
+  static Future<void> reloadUser() async {
+    await currentUser?.reload();
+    print('User reloaded, verified: ${currentUser?.emailVerified}');
+  }
+
+// Sign up with email verification
+  static Future<UserCredential> signUpWithVerification(
+      String email,
+      String password,
+      String name,
+      ) async
+  {
+    print('🔵 FIREBASE: signUp with verification called');
+    print('🔵 FIREBASE: Email = $email');
+    print('🔵 FIREBASE: Name = $name');
+
+    // Step 1: Create Firebase Auth account
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    print('✅ FIREBASE: Auth account created');
+
+    try {
+      // Step 2: Update displayName
+      await credential.user!.updateDisplayName(name);
+      print('✅ FIREBASE: DisplayName updated to: $name');
+
+      // Step 3: Create Firestore document
+      await _createUserDocument(credential.user!, name);
+      print('✅ FIREBASE: User document created');
+
+      // Step 4: Send verification email
+      await credential.user!.sendEmailVerification();
+      print('✅ FIREBASE: Verification email sent');
+
+    } catch (e) {
+      print('❌ FIREBASE: Error in post-signup steps: $e');
+      // Fallback: ensure document exists
+      try {
+        await _firestore.collection('users').doc(credential.user!.uid).set({
+          'uid': credential.user!.uid,
+          'email': credential.user!.email ?? '',
+          'name': name,
+          'createdAt': DateTime.now().toIso8601String(),
+          'emailVerified': false,
+        });
+        print('✅ FIREBASE: User document created (fallback)');
+
+        // Try to send verification email anyway
+        await credential.user!.sendEmailVerification();
+      } catch (e2) {
+        print('❌ FIREBASE: Fallback failed: $e2');
+      }
+    }
+
+    return credential;
+  }
+
+// Update _createUserDocument to include email verification status
+  static Future<void> _createUserDocument(User user, String name) async {
+    print('🔵 FIREBASE: _createUserDocument called');
+    print('🔵 FIREBASE: Name parameter = $name');
+
+    final userModel = UserModel(
+      uid: user.uid,
+      email: user.email ?? '',
+      name: name,
+      createdAt: DateTime.now(),
+      emailVerified: user.emailVerified, // Add this field
+    );
+
+    print('🔵 FIREBASE: UserModel created with name: ${userModel.name}');
+    print('🔵 FIREBASE: Saving to Firestore...');
+
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(userModel.toJson());
+
+    print('✅ FIREBASE: User document saved successfully');
+  }
+
+  // ==================== MFA / 2FA ====================
+
+  /// Generates a random 6-digit OTP and saves it to Firestore with a 5-minute expiry.
+  /// Also triggers a real email if the 'Trigger Email' extension is configured.
+  static Future<void> generateAndSendOtp(String uid) async {
+    try {
+      final otp = (100000 + (DateTime.now().millisecond * 899999) ~/ 1000).toString().padLeft(6, '0');
+      final expiresAt = DateTime.now().add(const Duration(minutes: 5));
+
+      print('🔵 FIREBASE: Generating OTP for $uid: $otp');
+
+      // 1. Save OTP for verification
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('mfa')
+          .doc('current_otp')
+          .set({
+        'otp': otp,
+        'expiresAt': expiresAt.toIso8601String(),
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+
+      // 2. Trigger Real Email via extension
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final email = userDoc.data()?['email'] ?? currentUser?.email;
+
+      if (email != null && email.isNotEmpty) {
+        await _firestore.collection('mail').add({
+          'to': email,
+          'message': {
+            'subject': 'Your Barter Verification Code: $otp',
+            'html': '''
+              <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #6200EE; text-align: center;">Barter Security</h2>
+                <p>Hello,</p>
+                <p>You are receiving this email because a Two-Step Verification was requested for your Barter account.</p>
+                <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                  <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333;">$otp</span>
+                </div>
+                <p style="font-size: 13px; color: #777;">This code will expire in 5 minutes. If you did not request this, please ignore this email.</p>
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="font-size: 11px; color: #999; text-align: center;">© 2024 Barter App. Professional Exchange Platform.</p>
+              </div>
+            ''',
+          },
+        });
+        print('✅ FIREBASE: Email trigger document created for $email');
+      } else {
+        print('⚠️ FIREBASE: Could not find email to send OTP');
+      }
+
+      print('✅ FIREBASE: OTP saved to Firestore (expires at $expiresAt)');
+    } catch (e) {
+      print('❌ FIREBASE: Error generating OTP: $e');
+      rethrow;
+    }
+  }
+
+  /// Verifies if the provided OTP matches and hasn't expired.
+  static Future<bool> verifyOtp(String uid, String code) async {
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('mfa')
+          .doc('current_otp')
+          .get();
+
+      if (!doc.exists) return false;
+
+      final data = doc.data()!;
+      final savedOtp = data['otp'];
+      final expiresAt = DateTime.parse(data['expiresAt']);
+
+      if (DateTime.now().isAfter(expiresAt)) {
+        print('⚠️ FIREBASE: OTP has expired');
+        return false;
+      }
+
+      if (savedOtp == code) {
+        print('✅ FIREBASE: OTP verified successfully');
+        // Clear the OTP after successful verification
+        await doc.reference.delete();
+        return true;
+      }
+
+      print('❌ FIREBASE: OTP mismatch');
+      return false;
+    } catch (e) {
+      print('❌ FIREBASE: Error verifying OTP: $e');
+      return false;
+    }
+  }
+
+  /// Toggles MFA for the current user.
+  static Future<void> toggleMfa(bool enabled) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('users').doc(user.uid).update({
+      'mfaEnabled': enabled,
+    });
+    print('✅ FIREBASE: MFA ${enabled ? 'enabled' : 'disabled'} for user ${user.uid}');
   }
 }

@@ -21,12 +21,12 @@ dependencies:
   provider: ^6.1.5+1
   shared_preferences: ^2.5.3
   fluttertoast: ^8.2.8  # Downgraded to resolve conflict
-  google_sign_in: ^6.2.1
+  google_sign_in: ^6.2.2
   image_picker: ^1.1.0
-  firebase_core: ^2.24.0  # Keep this version for compatibility
-  cloud_firestore: ^4.13.0
-  firebase_auth: ^4.16.0  # Downgraded to be compatible with firebase_core 2.24.0
-  firebase_storage: ^11.5.0
+  firebase_core: ^3.10.1
+  cloud_firestore: ^5.6.2
+  firebase_auth: ^5.4.1
+  firebase_storage: ^12.4.2
   http: ^1.1.0
   package_info_plus: ^4.2.0
   share_plus: ^7.2.1

@@ -12,6 +12,7 @@ import 'package:barter/features/account/edit_profile_screen.dart';
 import 'package:barter/features/account/settings_screen.dart';
 import 'package:barter/features/account/owner_profile_screen.dart';
 import 'package:barter/features/saved_items/saved_items_screen.dart';
+import 'package:barter/features/Authentication/otp/otp_verification_screen.dart';
 import 'package:barter/features/splash/splash_screen.dart';
 import 'package:barter/features/onboarding/onboarding_screen.dart';
 import 'package:barter/features/notifications/notifications_screen.dart';
@@ -130,6 +131,15 @@ class RoutesManager {
       case Routes.notifications:
         return MaterialPageRoute(
           builder: (_) => const NotificationsScreen(),
+        );
+
+      case Routes.otpVerification:
+        final args = settings.arguments as Map<String, dynamic>;
+        return CupertinoPageRoute(
+          builder: (context) => OtpVerificationScreen(
+            uid: args['uid'],
+            email: args['email'],
+          ),
         );
 
       default:

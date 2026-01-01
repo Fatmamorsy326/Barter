@@ -1,5 +1,5 @@
 // ============================================
-// FILE: lib/features/Authentication/register/register.dart
+// COMPLETE register.dart file with email verification
 // ============================================
 
 import 'package:barter/core/resources/colors_manager.dart';
@@ -10,7 +10,6 @@ import 'package:barter/core/widgets/custom_text_button.dart';
 import 'package:barter/features/Authentication/validation.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
-import 'package:barter/model/register_request.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -183,10 +182,9 @@ class _RegisterState extends State<Register> {
     );
   }
 
-// In your register.dart, verify the createAccount method looks like this:
-
-  // Update your createAccount method in register.dart:
-
+  // ============================================
+  // ⭐ THIS IS THE UPDATED METHOD WITH EMAIL VERIFICATION
+  // ============================================
   Future<void> createAccount() async {
     // Validate form first
     if (regFormKey.currentState?.validate() == false) {
@@ -206,7 +204,7 @@ class _RegisterState extends State<Register> {
     UiUtils.showLoading(context, false);
 
     try {
-      // Call signUp
+      // Call signUp (which now sends verification email)
       await FirebaseService.signUp(email, password, name);
 
       print('✅ REGISTER: SignUp successful');
@@ -214,11 +212,8 @@ class _RegisterState extends State<Register> {
       // Hide loading
       if (mounted) UiUtils.hideDialog(context);
 
-      // Show success message
-      UiUtils.showToastMessage(
-        AppLocalizations.of(context)!.registered_successfully,
-        Colors.green,
-      );
+      // Show verification dialog
+      await _showVerificationDialog();
 
       // Sign out and navigate to login
       await FirebaseService.logout();
@@ -235,7 +230,6 @@ class _RegisterState extends State<Register> {
       // Show specific Firebase error
       String errorMessage = _getFirebaseErrorMessage(e.code);
       UiUtils.showToastMessage(errorMessage, Colors.red);
-
     } catch (e) {
       print('❌ REGISTER: General Error: $e');
 
@@ -257,8 +251,9 @@ class _RegisterState extends State<Register> {
               .set({
             'uid': currentUser.uid,
             'email': email,
-            'name': name, // Use the original name variable
+            'name': name,
             'createdAt': DateTime.now().toIso8601String(),
+            'emailVerified': false,
           });
 
           print('✅ REGISTER: User document created with correct name');
@@ -267,20 +262,21 @@ class _RegisterState extends State<Register> {
           await currentUser.updateDisplayName(name);
           print('✅ REGISTER: DisplayName updated');
 
+          // Send verification email
+          try {
+            await currentUser.sendEmailVerification();
+            print('✅ REGISTER: Verification email sent');
+          } catch (emailError) {
+            print('⚠️ REGISTER: Could not send verification email: $emailError');
+          }
         } catch (docError) {
-          print('❌ REGISTER: Error creating document: $docError');
+          print('❌ REGISTER: Error in registration fallback: $docError');
         }
 
         // Show success
-        UiUtils.showToastMessage(
-          AppLocalizations.of(context)!.registered_successfully,
-          Colors.green,
-        );
-
-        // Sign out and go to login
-        await FirebaseService.logout();
-
         if (mounted) {
+          await _showVerificationDialog();
+          await FirebaseService.logout();
           Navigator.pushReplacementNamed(context, Routes.login);
         }
       } else {
@@ -291,6 +287,102 @@ class _RegisterState extends State<Register> {
         );
       }
     }
+  }
+
+  // ============================================
+  // ⭐ NEW METHOD - Show verification dialog
+  // ============================================
+  Future<void> _showVerificationDialog() async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        title: Row(
+          children: [
+            Container(
+              padding: REdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.mark_email_read, color: Colors.green, size: 24.sp),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                'Verify Your Email',
+                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'We\'ve sent a verification email to:',
+              style: TextStyle(fontSize: 14.sp),
+            ),
+            SizedBox(height: 8.h),
+            Container(
+              padding: REdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ColorsManager.purpleSoft,
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Text(
+                emailController.text.trim(),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.sp,
+                  color: ColorsManager.purple,
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'Please check your inbox and click the verification link to activate your account.',
+              style: TextStyle(fontSize: 13.sp, color: Colors.grey[600]),
+            ),
+            SizedBox(height: 12.h),
+            Container(
+              padding: REdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20.sp),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      'Check your spam folder if you don\'t see it',
+                      style: TextStyle(fontSize: 11.sp, color: Colors.orange[800]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorsManager.purple,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+            ),
+            child: const Text('Got it!'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getFirebaseErrorMessage(String code) {

@@ -215,69 +215,80 @@ class _LoginState extends State<Login> {
     );
   }
 
+// Update your Login screen's login method:
+
   Future<void> login() async {
-    // Validate form
     if (loginFormKey.currentState?.validate() == false) {
       return;
     }
 
-    // Show loading
     UiUtils.showLoading(context, false);
 
     try {
       // Attempt login
-      // await FirebaseService.login(
-      //   LoginRequest(
-      //     email: emailController.text.trim(),
-      //     password: passwordController.text,
-      //   ),
-      // );
-      await FirebaseService.signIn( emailController.text.trim(),passwordController.text,);
+      await FirebaseService.signIn(
+        emailController.text.trim(),
+        passwordController.text,
+      );
 
-      // Hide loading
       if (mounted) UiUtils.hideDialog(context);
 
-      // Show success message
+      // Check if email is verified
+      final user = FirebaseService.currentUser;
+
+      if (user != null && !user.emailVerified) {
+        // Email not verified - show warning
+        await _showEmailNotVerifiedDialog();
+        return;
+      }
+
+      // NEW: Check for MFA
+      if (user != null) {
+        final userModel = await FirebaseService.getUserById(user.uid);
+        if (userModel != null && userModel.mfaEnabled) {
+          // Trigger OTP
+          await FirebaseService.generateAndSendOtp(user.uid);
+          
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context, 
+              Routes.otpVerification,
+              arguments: {
+                'uid': user.uid,
+                'email': user.email ?? '',
+              },
+            );
+          }
+          return;
+        }
+      }
+
+      // Email is verified or doesn't need verification
       UiUtils.showToastMessage(
         AppLocalizations.of(context)!.logged_in_successfully,
         Colors.green,
       );
 
-      // Navigate to main layout
       if (mounted) {
         Navigator.pushReplacementNamed(context, Routes.mainLayout);
       }
     } on FirebaseAuthException catch (e) {
-      // Hide loading
       if (mounted) UiUtils.hideDialog(context);
 
-      // Show specific error message
       String errorMessage = _getFirebaseErrorMessage(e.code);
       UiUtils.showToastMessage(errorMessage, Colors.red);
-    } on FirebaseException catch (e) {
-      // Hide loading
-      if (mounted) UiUtils.hideDialog(context);
-
-      // Check if user is actually logged in despite the error
-      if (FirebaseService.currentUser != null) {
-        UiUtils.showToastMessage(
-          AppLocalizations.of(context)!.logged_in_successfully,
-          Colors.green,
-        );
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, Routes.mainLayout);
-        }
-      } else {
-        String errorMessage = _getFirebaseErrorMessage(e.code ?? 'unknown');
-        UiUtils.showToastMessage(errorMessage, Colors.red);
-      }
     } catch (e) {
-      // Hide loading
       if (mounted) UiUtils.hideDialog(context);
 
-      // Check if user is actually logged in despite the error
       if (FirebaseService.currentUser != null) {
-        // Login actually succeeded!
+        // Check verification even in error case
+        final user = FirebaseService.currentUser!;
+
+        if (!user.emailVerified) {
+          await _showEmailNotVerifiedDialog();
+          return;
+        }
+
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.logged_in_successfully,
           Colors.green,
@@ -287,14 +298,122 @@ class _LoginState extends State<Login> {
           Navigator.pushReplacementNamed(context, Routes.mainLayout);
         }
       } else {
-        // Actual login failure
-        print('Login error: $e'); // For debugging
+        print('Login error: $e');
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.failed_to_login,
           Colors.red,
         );
       }
     }
+  }
+
+// Add this method to show email not verified dialog
+  Future<void> _showEmailNotVerifiedDialog() async {
+    final user = FirebaseService.currentUser;
+
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        title: Row(
+          children: [
+            Container(
+              padding: REdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.warning_rounded, color: Colors.orange, size: 24.sp),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                'Email Not Verified',
+                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Please verify your email address before logging in.',
+              style: TextStyle(fontSize: 14.sp),
+            ),
+            SizedBox(height: 16.h),
+            Container(
+              padding: REdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ColorsManager.purpleSoft,
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.email, color: ColorsManager.purple, size: 20.sp),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      user?.email ?? '',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.sp,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'Haven\'t received the email?',
+              style: TextStyle(fontSize: 13.sp, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FirebaseService.logout();
+            },
+            child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              try {
+                // Resend verification email
+                await user?.sendEmailVerification();
+
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  UiUtils.showToastMessage(
+                    'Verification email sent! Please check your inbox.',
+                    Colors.green,
+                  );
+                  await FirebaseService.logout();
+                }
+              } catch (e) {
+                print('Error sending verification: $e');
+                UiUtils.showToastMessage(
+                  'Failed to send email. Please try again.',
+                  Colors.red,
+                );
+              }
+            },
+            icon: Icon(Icons.send, size: 18.sp),
+            label: const Text('Resend Email'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorsManager.purple,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loginWithGoogle() async {
@@ -310,7 +429,28 @@ class _LoginState extends State<Login> {
       
       if (mounted) UiUtils.hideDialog(context);
 
-      if (credential != null) {
+      if (credential != null && credential.user != null) {
+        final user = credential.user!;
+        
+        // NEW: Check for MFA
+        final userModel = await FirebaseService.getUserById(user.uid);
+        if (userModel != null && userModel.mfaEnabled) {
+          // Trigger OTP
+          await FirebaseService.generateAndSendOtp(user.uid);
+          
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context, 
+              Routes.otpVerification,
+              arguments: {
+                'uid': user.uid,
+                'email': user.email ?? '',
+              },
+            );
+          }
+          return;
+        }
+
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.logged_in_successfully,
           Colors.green,
@@ -330,6 +470,26 @@ class _LoginState extends State<Login> {
 
       // Check if user is actually logged in despite the error
       if (FirebaseService.currentUser != null) {
+        final user = FirebaseService.currentUser!;
+
+        // NEW: Check for MFA in error case too
+        final userModel = await FirebaseService.getUserById(user.uid);
+        if (userModel != null && userModel.mfaEnabled) {
+          await FirebaseService.generateAndSendOtp(user.uid);
+          
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context, 
+              Routes.otpVerification,
+              arguments: {
+                'uid': user.uid,
+                'email': user.email ?? '',
+              },
+            );
+          }
+          return;
+        }
+
         UiUtils.showToastMessage(
           AppLocalizations.of(context)!.logged_in_successfully,
           Colors.green,

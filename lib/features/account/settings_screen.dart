@@ -1,4 +1,6 @@
 import 'package:barter/core/resources/colors_manager.dart';
+import 'package:barter/core/ui_utils.dart';
+import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/providers/local_providers.dart';
 import 'package:flutter/material.dart';
@@ -15,12 +17,33 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
+  bool _mfaEnabled = false; // NEW
   String _appVersion = '1.0.0';
+  bool _isLoadingMfa = true; // NEW
 
   @override
   void initState() {
     super.initState();
     _loadAppVersion();
+    _loadUserData(); // NEW
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final user = FirebaseService.currentUser;
+      if (user != null) {
+        final userModel = await FirebaseService.getUserById(user.uid);
+        if (userModel != null) {
+          setState(() {
+            _mfaEnabled = userModel.mfaEnabled;
+            _isLoadingMfa = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user data for settings: $e');
+      setState(() => _isLoadingMfa = false);
+    }
   }
 
   Future<void> _loadAppVersion() async {
@@ -62,6 +85,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _buildLanguageTile(),
                     _buildDivider(),
                     _buildNotificationsTile(),
+                  ]),
+                  SizedBox(height: 24.h),
+                  _buildSectionTitle('Security', Icons.security_rounded),
+                  SizedBox(height: 12.h),
+                  _buildSettingsCard([
+                    _buildMfaTile(),
                   ]),
                   SizedBox(height: 24.h),
                   _buildSectionTitle('Information', Icons.info_outline_rounded),
@@ -562,6 +591,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildMfaTile() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _isLoadingMfa ? null : () => _toggleMfa(!_mfaEnabled),
+        borderRadius: BorderRadius.circular(16.r),
+        child: Padding(
+          padding: REdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: REdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _mfaEnabled
+                      ? Colors.blue.withOpacity(0.15)
+                      : ColorsManager.purpleSoftFor(context),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Icon(
+                  Icons.lock_person_rounded,
+                  color: _mfaEnabled ? Colors.blue : ColorsManager.purpleFor(context),
+                  size: 22.sp,
+                ),
+              ),
+              SizedBox(width: 14.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Two-Step Verification',
+                      style: TextStyle(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w600,
+                        color: ColorsManager.textFor(context),
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      _mfaEnabled ? 'Extra security enabled' : 'Protect your account',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: ColorsManager.textSecondaryFor(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isLoadingMfa)
+                SizedBox(
+                  width: 20.w,
+                  height: 20.h,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: ColorsManager.purpleFor(context)),
+                )
+              else
+                Switch.adaptive(
+                  value: _mfaEnabled,
+                  onChanged: (value) => _toggleMfa(value),
+                  activeColor: Colors.blue,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleMfa(bool value) async {
+    setState(() => _isLoadingMfa = true);
+    try {
+      await FirebaseService.toggleMfa(value);
+      setState(() {
+        _mfaEnabled = value;
+        _isLoadingMfa = false;
+      });
+      if (mounted) {
+        UiUtils.showToastMessage(
+          value ? 'Two-Step Verification enabled' : 'Two-Step Verification disabled',
+          value ? Colors.blue : Colors.grey,
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoadingMfa = false);
+      if (mounted) UiUtils.showToastMessage('Failed to update security settings', Colors.red);
+    }
   }
 
   Widget _buildSettingsTile({

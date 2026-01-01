@@ -32,4 +32,5 @@ class Routes {
 
   static const String onboarding = '/onboarding';
   static const String notifications = '/notifications';
+  static const String otpVerification = '/otpVerification';
 }
