@@ -733,8 +733,12 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
     } catch (e) {
       UiUtils.hideDialog(context);
       print('Error proposing exchange: $e');
+      
+      // Extract clean message
+      String message = e.toString().replaceFirst('Exception: ', '');
+      
       UiUtils.showToastMessage(
-        'Failed to send proposal',
+        message,
         Colors.red,
       );
     }

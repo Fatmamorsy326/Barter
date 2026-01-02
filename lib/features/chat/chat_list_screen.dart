@@ -435,12 +435,26 @@ class _ChatListTileState extends State<ChatListTile>
                                 style: TextStyle(
                                   fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w600,
                                   fontSize: 15.sp,
-                                  color: ColorsManager.textFor(context),
+                                  color: ColorsManager.textFor(context).withOpacity(widget.chat.blockedBy.isNotEmpty ? 0.6 : 1.0),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if (widget.chat.blockedBy.isNotEmpty)
+                              Container(
+                                margin: REdgeInsets.only(right: 8),
+                                padding: REdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4.r),
+                                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  'Blocked',
+                                  style: TextStyle(color: Colors.red, fontSize: 10.sp, fontWeight: FontWeight.bold),
+                                ),
+                              ),
                             Text(
                               _formatTime(widget.chat.lastMessageTime),
                               style: TextStyle(

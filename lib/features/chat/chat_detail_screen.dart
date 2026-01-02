@@ -144,6 +144,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           Container(
             width: 44.w,
             height: 44.h,
+            // ... (rest of the avatar code)
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withOpacity(0.2),
@@ -175,36 +176,86 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (itemTitle.isNotEmpty) ...[
-                  SizedBox(height: 2.h),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.swap_horiz_rounded,
-                        color: Colors.white70,
-                        size: 12.sp,
-                      ),
-                      SizedBox(width: 4.w),
-                      Expanded(
-                        child: Text(
-                          itemTitle,
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12.sp,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
+          _buildChatMenu(userName, itemTitle),
         ],
       ),
     );
+  }
+
+  Widget _buildChatMenu(String userName, String itemTitle) {
+    return StreamBuilder<List<ChatModel>>(
+      stream: FirebaseService.getUserChatsStream(),
+      builder: (context, snapshot) {
+        final chats = snapshot.data ?? [];
+        final chat = chats.where((c) => c.chatId == widget.chatId).firstOrNull;
+        if (chat == null) return const SizedBox.shrink();
+
+        final currentUserId = FirebaseService.currentUser?.uid;
+        final isBlockedByMe = chat.blockedBy.contains(currentUserId);
+        final otherUserBlocked = chat.blockedBy.any((id) => id != currentUserId);
+
+        return PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+          onSelected: (value) {
+            if (value == 'block') {
+              _toggleBlock(isBlockedByMe);
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'block',
+              child: Row(
+                children: [
+                  Icon(
+                    isBlockedByMe ? Icons.check_circle_outline : Icons.block_flipped,
+                    color: isBlockedByMe ? Colors.green : Colors.red,
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    isBlockedByMe ? 'Unblock User' : 'Block User',
+                    style: TextStyle(color: isBlockedByMe ? Colors.green : Colors.red),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleBlock(bool isBlockedByMe) async {
+    final currentUserId = FirebaseService.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    try {
+      if (isBlockedByMe) {
+        await FirebaseService.unblockUser(widget.chatId, currentUserId);
+        UiUtils.showToastMessage('User unblocked', Colors.green);
+      } else {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Block User?'),
+            content: const Text('You will not be able to send or receive messages in this chat.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Block', style: TextStyle(color: Colors.red))),
+            ],
+          ),
+        );
+
+        if (confirm == true) {
+          await FirebaseService.blockUser(widget.chatId, currentUserId);
+          UiUtils.showToastMessage('User blocked', Colors.red);
+        }
+      }
+    } catch (e) {
+      UiUtils.showToastMessage('Action failed: $e', Colors.red);
+    }
   }
 
   Widget _buildAvatarPlaceholder(String name) {
@@ -357,116 +408,141 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   }
 
   Widget _buildMessageInput() {
-    return Container(
-      padding: REdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: ColorsManager.white,
-        boxShadow: [
-          BoxShadow(
-            color: ColorsManager.shadow,
-            blurRadius: 20,
-            offset: const Offset(0, -8),
+    return StreamBuilder<List<ChatModel>>(
+      stream: FirebaseService.getUserChatsStream(),
+      builder: (context, snapshot) {
+        final chats = snapshot.data ?? [];
+        final chat = chats.where((c) => c.chatId == widget.chatId).firstOrNull;
+        final isBlocked = chat?.blockedBy.isNotEmpty ?? false;
+
+        if (isBlocked) {
+          final isBlockedByMe = chat?.blockedBy.contains(FirebaseService.currentUser?.uid) ?? false;
+          return Container(
+            padding: REdgeInsets.all(16),
+            color: ColorsManager.greyUltraLight,
+            child: SafeArea(
+              child: Center(
+                child: Text(
+                  isBlockedByMe ? 'You have blocked this chat' : 'This chat is blocked',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          padding: REdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            color: ColorsManager.white,
+            boxShadow: [
+              BoxShadow(
+                color: ColorsManager.shadow,
+                blurRadius: 20,
+                offset: const Offset(0, -8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            GestureDetector(
-              onTap: _showPhotoOptions,
-              child: Container(
-                width: 44.w,
-                height: 44.h,
-                margin: REdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: ColorsManager.purpleSoft,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.attach_file_rounded,
-                  color: ColorsManager.purple,
-                  size: 20.sp,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: ColorsManager.greyUltraLight,
-                  borderRadius: BorderRadius.circular(24.r),
-                ),
-                child: TextField(
-                  controller: _messageController,
-                  decoration: InputDecoration(
-                    hintText: AppLocalizations.of(context)!.type_message,
-                    hintStyle: TextStyle(
-                      color: ColorsManager.grey,
-                      fontSize: 14.sp,
+          child: SafeArea(
+            top: false,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  onTap: _showPhotoOptions,
+                  child: Container(
+                    width: 44.w,
+                    height: 44.h,
+                    margin: REdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: ColorsManager.purpleSoft,
+                      shape: BoxShape.circle,
                     ),
-                    border: InputBorder.none,
-                    contentPadding: REdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
+                    child: Icon(
+                      Icons.attach_file_rounded,
+                      color: ColorsManager.purple,
+                      size: 20.sp,
                     ),
                   ),
-                  textCapitalization: TextCapitalization.sentences,
-                  maxLines: 4,
-                  minLines: 1,
-                  keyboardType: TextInputType.multiline,
-                  style: TextStyle(fontSize: 14.sp),
                 ),
-              ),
-            ),
-            SizedBox(width: 12.w),
-            AnimatedBuilder(
-              animation: _sendButtonAnimation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _hasText ? _sendButtonAnimation.value : 0.8,
-                  child: child,
-                );
-              },
-              child: GestureDetector(
-                onTap: _hasText ? _sendMessage : null,
-                child: Container(
-                  width: 48.w,
-                  height: 48.h,
-                  decoration: BoxDecoration(
-                    gradient: _hasText
-                        ? const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              ColorsManager.gradientStart,
-                              ColorsManager.gradientEnd,
-                            ],
-                          )
-                        : null,
-                    color: _hasText ? null : ColorsManager.greyLight,
-                    shape: BoxShape.circle,
-                    boxShadow: _hasText
-                        ? [
-                            BoxShadow(
-                              color: ColorsManager.purple.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Icon(
-                    Icons.send_rounded,
-                    color: _hasText ? Colors.white : ColorsManager.grey,
-                    size: 22.sp,
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: ColorsManager.greyUltraLight,
+                      borderRadius: BorderRadius.circular(24.r),
+                    ),
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: InputDecoration(
+                        hintText: AppLocalizations.of(context)!.type_message,
+                        hintStyle: TextStyle(
+                          color: ColorsManager.grey,
+                          fontSize: 14.sp,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: REdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLines: 4,
+                      minLines: 1,
+                      keyboardType: TextInputType.multiline,
+                      style: TextStyle(fontSize: 14.sp),
+                    ),
                   ),
                 ),
-              ),
+                SizedBox(width: 12.w),
+                AnimatedBuilder(
+                  animation: _sendButtonAnimation,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _hasText ? _sendButtonAnimation.value : 0.8,
+                      child: child,
+                    );
+                  },
+                  child: GestureDetector(
+                    onTap: _hasText ? _sendMessage : null,
+                    child: Container(
+                      width: 48.w,
+                      height: 48.h,
+                      decoration: BoxDecoration(
+                        gradient: _hasText
+                            ? const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  ColorsManager.gradientStart,
+                                  ColorsManager.gradientEnd,
+                                ],
+                              )
+                            : null,
+                        color: _hasText ? null : ColorsManager.greyLight,
+                        shape: BoxShape.circle,
+                        boxShadow: _hasText
+                            ? [
+                                BoxShadow(
+                                  color: ColorsManager.purple.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        Icons.send_rounded,
+                        color: _hasText ? Colors.white : ColorsManager.grey,
+                        size: 22.sp,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

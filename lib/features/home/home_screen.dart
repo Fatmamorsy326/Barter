@@ -695,7 +695,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           _buildCategoryChip(null, 'All'),
           ...ItemCategory.values.map(
-                (cat) => _buildCategoryChip(cat, cat.name.capitalize()),
+                (cat) => _buildCategoryChip(cat, cat.displayName),
           ),
         ],
       ),

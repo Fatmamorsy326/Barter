@@ -225,6 +225,13 @@ class FirebaseService {
   }
 
   static Future<void> deleteItem(String itemId) async {
+    // Before deleting, cancel any pending exchanges involving this item
+    await _autoCancelPendingExchanges(
+      [itemId],
+      'System: This exchange request has been automatically cancelled because one of the items has been deleted by its owner.',
+      'An exchange you proposed was cancelled because one of the items was deleted by its owner.',
+    );
+
     await _firestore.collection('items').doc(itemId).delete();
   }
 
@@ -366,9 +373,8 @@ class FirebaseService {
         final data = doc.data();
         data['chatId'] = doc.id;
 
-        // Extract unread count for current user
-        final unreadCounts = Map<String, dynamic>.from(data['unreadCounts'] ?? {});
-        data['unreadCount'] = unreadCounts[userId] ?? 0;
+        // Extract blockedBy list
+        data['blockedBy'] = List<String>.from(data['blockedBy'] ?? []);
 
         return ChatModel.fromJson(data);
       }).toList();
@@ -383,9 +389,17 @@ class FirebaseService {
     });
   }
 
-  static Future<void> sendMessage(String chatId, String content) async
-  {
+  static Future<void> sendMessage(String chatId, String content) async {
     final currentUserId = currentUser!.uid;
+
+    // Get the chat document to check for blocks
+    final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+    final chatData = chatDoc.data() ?? {};
+    final blockedBy = List<String>.from(chatData['blockedBy'] ?? []);
+
+    if (blockedBy.isNotEmpty) {
+      throw Exception('Cannot send message. This chat is blocked.');
+    }
 
     final messageData = {
       'senderId': currentUserId,
@@ -400,13 +414,10 @@ class FirebaseService {
         .collection('messages')
         .add(messageData);
 
-    // Get the chat document to find the other participant
-    final chatDoc = await _firestore.collection('chats').doc(chatId).get();
-    final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
-
-    // Find the other user ID
+    // Find the other participant
+    final participants = List<String>.from(chatData['participants'] ?? []);
     final otherUserId = participants.firstWhere(
-          (id) => id != currentUserId,
+      (id) => id != currentUserId,
       orElse: () => '',
     );
 
@@ -427,6 +438,15 @@ class FirebaseService {
   static Future<void> sendPhotoMessage(String chatId, File photoFile) async {
     final currentUserId = currentUser!.uid;
 
+    // Get the chat document to check for blocks
+    final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+    final chatData = chatDoc.data() ?? {};
+    final blockedBy = List<String>.from(chatData['blockedBy'] ?? []);
+
+    if (blockedBy.isNotEmpty) {
+      throw Exception('Cannot send photo. This chat is blocked.');
+    }
+
     // Upload photo to ImgBB
     final photoUrl = await ImageUploadService.uploadImage(photoFile);
 
@@ -445,13 +465,10 @@ class FirebaseService {
         .collection('messages')
         .add(messageData);
 
-    // Get the chat document to find the other participant
-    final chatDoc = await _firestore.collection('chats').doc(chatId).get();
-    final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
-
-    // Find the other user ID
+    // Find the other participant
+    final participants = List<String>.from(chatData['participants'] ?? []);
     final otherUserId = participants.firstWhere(
-          (id) => id != currentUserId,
+      (id) => id != currentUserId,
       orElse: () => '',
     );
 
@@ -564,6 +581,20 @@ class FirebaseService {
         }
       }
       return total;
+    });
+  }
+
+  /// Block a user in a chat
+  static Future<void> blockUser(String chatId, String userId) async {
+    await _firestore.collection('chats').doc(chatId).update({
+      'blockedBy': FieldValue.arrayUnion([userId]),
+    });
+  }
+
+  /// Unblock a user in a chat
+  static Future<void> unblockUser(String chatId, String userId) async {
+    await _firestore.collection('chats').doc(chatId).update({
+      'blockedBy': FieldValue.arrayRemove([userId]),
     });
   }
 
@@ -793,6 +824,20 @@ class FirebaseService {
   }) async {
     final currentUserId = currentUser!.uid;
 
+    // Check if any item is already exchanged
+    for (var item in itemsRequested) {
+      final doc = await _firestore.collection('items').doc(item.itemId).get();
+      if (doc.exists && (doc.data()?['isExchanged'] ?? false)) {
+        throw Exception('Item "${item.title}" is already part of another accepted exchange.');
+      }
+    }
+    for (var item in itemsOffered) {
+      final doc = await _firestore.collection('items').doc(item.itemId).get();
+      if (doc.exists && (doc.data()?['isExchanged'] ?? false)) {
+        throw Exception('Your item "${item.title}" is already part of another accepted exchange.');
+      }
+    }
+
     // Create or get existing chat for this item (using the first requested item as context)
     final chatId = await createOrGetChat(
       proposedTo,
@@ -880,14 +925,115 @@ class FirebaseService {
     print('Marked items as unavailable: $itemOfferedIds, $itemRequestedIds');
 
     // Notify the proposer
-    await createNotification(
-      userId: data['proposedBy'],
-      title: 'Exchange Accepted',
-      body: 'Your exchange request has been accepted!',
-      type: NotificationType.exchangeAccepted,
-      relatedId: exchangeId,
-    );
+  await createNotification(
+    userId: data['proposedBy'],
+    title: 'Exchange Accepted',
+    body: 'Your exchange request has been accepted!',
+    type: NotificationType.exchangeAccepted,
+    relatedId: exchangeId,
+  );
+
+  // --- AUTO-REJECT OTHER PENDING EXCHANGES ---
+  final allItemIds = [...itemOfferedIds, ...itemRequestedIds];
+  
+  await _autoCancelPendingExchanges(
+    allItemIds,
+    'System: This exchange request has been automatically cancelled because one or more items involved are now exchanged in another operation.',
+    'An exchange you proposed was cancelled because the items are no longer available.',
+    excludeExchangeId: exchangeId,
+  );
+}
+
+/// Helper to automatically cancel pending exchanges involving specific items
+static Future<void> _autoCancelPendingExchanges(
+  List<String> itemIds,
+  String chatMessage,
+  String notificationBody, {
+  String? excludeExchangeId,
+}) async {
+  try {
+    // Find all pending exchanges
+    final pendingSnapshot = await _firestore
+        .collection('exchanges')
+        .where('status', isEqualTo: 0) // ExchangeStatus.pending
+        .get();
+
+    for (var doc in pendingSnapshot.docs) {
+      if (excludeExchangeId != null && doc.id == excludeExchangeId) continue;
+
+      final data = doc.data();
+      Set<String> involvedItemIds = {};
+
+      // Helper to extract IDs from list format
+      void extractFromList(dynamic list) {
+        if (list is List) {
+          for (var item in list) {
+            if (item is Map && item['itemId'] != null) {
+              involvedItemIds.add(item['itemId'].toString());
+            }
+          }
+        }
+      }
+
+      // Helper to extract IDs from legacy single-item format
+      void extractFromLegacy(dynamic item) {
+        if (item is Map && item['itemId'] != null) {
+          involvedItemIds.add(item['itemId'].toString());
+        }
+      }
+
+      // Check new List format
+      extractFromList(data['itemsOffered']);
+      extractFromList(data['itemsRequested']);
+
+      // Check legacy single-item format
+      extractFromLegacy(data['itemOffered']);
+      extractFromLegacy(data['itemRequested']);
+
+      final hasOverlap = involvedItemIds.any((id) => itemIds.contains(id));
+
+      if (hasOverlap) {
+        // Automatically cancel this exchange
+        await _firestore.collection('exchanges').doc(doc.id).update({
+          'status': 3, // ExchangeStatus.cancelled
+        });
+
+        // Send a system message to the chat
+        final chatId = data['chatId'] as String? ?? '';
+        if (chatId.isNotEmpty) {
+          await sendMessage(chatId, chatMessage);
+        }
+
+        // Notify the proposer
+        final proposedBy = data['proposedBy'] as String? ?? '';
+        if (proposedBy.isNotEmpty) {
+          await createNotification(
+            userId: proposedBy,
+            title: 'Exchange Cancelled',
+            body: notificationBody,
+            type: NotificationType.exchangeCancelled,
+            relatedId: doc.id,
+          );
+        }
+        
+        // Notify the receiver if they are not the current user
+        final proposedTo = data['proposedTo'] as String? ?? '';
+        final currentUid = currentUser?.uid;
+        if (proposedTo.isNotEmpty && proposedTo != currentUid) {
+           await createNotification(
+            userId: proposedTo,
+            title: 'Exchange Cancelled',
+            body: 'An exchange request was cancelled because the items are no longer available.',
+            type: NotificationType.exchangeCancelled,
+            relatedId: doc.id,
+          );
+        }
+      }
+    }
+  } catch (e) {
+    print('Error in auto-cancelling exchanges: $e');
   }
+}
 
   /// Reject/Cancel an exchange
   static Future<void> cancelExchange(String exchangeId) async {

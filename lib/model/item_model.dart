@@ -11,7 +11,8 @@ enum ItemCategory {
   books,
   furniture,
   sports,
-  other
+  other,
+  service
 }
 
 enum ItemCondition {
@@ -38,6 +39,8 @@ extension ItemCategoryExtension on ItemCategory {
         return 'Sports';
       case ItemCategory.other:
         return 'Other';
+      case ItemCategory.service:
+        return 'Services';
     }
   }
 
@@ -55,6 +58,8 @@ extension ItemCategoryExtension on ItemCategory {
         return Icons.sports_soccer;
       case ItemCategory.other:
         return Icons.category;
+      case ItemCategory.service:
+        return Icons.handshake;
     }
   }
 }

@@ -11,7 +11,8 @@ class ChatModel {
   final String lastMessage;
   final DateTime lastMessageTime;
   final String lastSenderId;
-  final int unreadCount; // ADD THIS FIELD
+  final int unreadCount;
+  final List<String> blockedBy; // Track who blocked this chat
 
   ChatModel({
     required this.chatId,
@@ -21,7 +22,8 @@ class ChatModel {
     required this.lastMessage,
     required this.lastMessageTime,
     required this.lastSenderId,
-    this.unreadCount = 0, // ADD THIS
+    this.unreadCount = 0,
+    this.blockedBy = const [], // Default to empty
   });
 
   factory ChatModel.fromJson(Map<String, dynamic> json) {
@@ -35,7 +37,8 @@ class ChatModel {
           ? DateTime.parse(json['lastMessageTime'])
           : DateTime.now(),
       lastSenderId: json['lastSenderId'] ?? '',
-      unreadCount: json['unreadCount'] ?? 0, // ADD THIS
+      unreadCount: json['unreadCount'] ?? 0,
+      blockedBy: List<String>.from(json['blockedBy'] ?? []),
     );
   }
 
@@ -48,7 +51,8 @@ class ChatModel {
       'lastMessage': lastMessage,
       'lastMessageTime': lastMessageTime.toIso8601String(),
       'lastSenderId': lastSenderId,
-      'unreadCount': unreadCount, // ADD THIS
+      'unreadCount': unreadCount,
+      'blockedBy': blockedBy,
     };
   }
 }
