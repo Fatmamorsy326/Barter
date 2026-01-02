@@ -1,6 +1,4 @@
-// ============================================
-// FILE: lib/features/home/item_detail_screen.dart
-// ============================================
+import 'dart:io';
 
 import 'package:barter/core/resources/colors_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
@@ -14,7 +12,9 @@ import 'package:barter/model/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ItemDetailScreen extends StatefulWidget {
   final ItemModel item;
@@ -75,6 +75,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   if (widget.item.preferredExchange != null) ...[
                     SizedBox(height: 16.h),
                     _buildPreferredExchange(context),
+                  ],
+                  if (widget.item.latitude != null && widget.item.longitude != null) ...[
+                    SizedBox(height: 16.h),
+                    _buildLocationMap(context),
                   ],
                   SizedBox(height: 100.h),
                 ],
@@ -722,6 +726,110 @@ Location: ${widget.item.location}
       return '${diff.inDays} days ago';
     } else {
       return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  Widget _buildLocationMap(BuildContext context) {
+    final position = LatLng(widget.item.latitude!, widget.item.longitude!);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Location',
+          style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600),
+        ),
+        SizedBox(height: 12.h),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16.r),
+          child: Container(
+            height: 200.h,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            ),
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: position,
+                zoom: 14,
+              ),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('item_location'),
+                  position: position,
+                  infoWindow: InfoWindow(title: widget.item.title),
+                ),
+              },
+              liteModeEnabled: true, // Optimized for detail screens
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
+              myLocationButtonEnabled: false,
+              onTap: (_) => _openInMaps(),
+            ),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            onPressed: _openInMaps,
+            icon: const Icon(Icons.directions, color: ColorsManager.purple),
+            label: const Text(
+              'Open in Maps',
+              style: TextStyle(color: ColorsManager.purple, fontWeight: FontWeight.bold),
+            ),
+            style: TextButton.styleFrom(
+              padding: REdgeInsets.symmetric(vertical: 12),
+              backgroundColor: ColorsManager.purple.withOpacity(0.05),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openInMaps() async {
+    final lat = widget.item.latitude;
+    final lng = widget.item.longitude;
+
+    if (lat == null || lng == null) return;
+
+    try {
+      final Uri mapsUri;
+
+      if (Platform.isIOS) {
+        // Try Apple Maps first (native iOS app)
+        mapsUri = Uri.parse('maps://?q=$lat,$lng');
+
+        if (await canLaunchUrl(mapsUri)) {
+          await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
+          return;
+        }
+
+        // Fallback to web URL
+        final webUri = Uri.parse('https://maps.apple.com/?q=$lat,$lng');
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      } else {
+        // Android: Try geo scheme first
+        mapsUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
+
+        if (await canLaunchUrl(mapsUri)) {
+          await launchUrl(mapsUri, mode: LaunchMode.externalNonBrowserApplication);
+          return;
+        }
+
+        // Fallback to Google Maps web URL
+        final webUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      print('Error launching maps: $e');
+      if (mounted) {
+        UiUtils.showToastMessage('Could not open maps', Colors.red);
+      }
     }
   }
 //   -----------------------------------------------------------------------

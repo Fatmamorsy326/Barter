@@ -1,8 +1,10 @@
+import 'package:barter/core/resources/colors_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 
 class EnhancedLocationPickerScreen extends StatefulWidget {
   final LatLng? initialLocation;
@@ -26,8 +28,10 @@ class _EnhancedLocationPickerScreenState extends State<EnhancedLocationPickerScr
   bool _isLoading = false;
   bool _isLoadingLocation = true;
   final TextEditingController _searchController = TextEditingController();
-  List<Location> _searchResults = [];
+  List<Map<String, dynamic>> _searchResults = []; // Changed to store both location and address
   bool _showSearchResults = false;
+  Timer? _searchDebounce;
+  bool _isSearchingResults = false;
 
   @override
   void initState() {
@@ -150,14 +154,50 @@ class _EnhancedLocationPickerScreenState extends State<EnhancedLocationPickerScr
       setState(() {
         _searchResults = [];
         _showSearchResults = false;
+        _isSearchingResults = false;
       });
       return;
     }
 
+    setState(() => _isSearchingResults = true);
+
     try {
       List<Location> locations = await locationFromAddress(query);
+      
+      List<Map<String, dynamic>> results = [];
+      
+      // Get addresses for the first few results to show names
+      for (var location in locations.take(8)) {
+        try {
+          List<Placemark> placemarks = await placemarkFromCoordinates(
+            location.latitude,
+            location.longitude,
+          );
+          
+          if (placemarks.isNotEmpty) {
+            final place = placemarks.first;
+            String address = [
+              place.name,
+              place.locality,
+              place.administrativeArea,
+            ].where((e) => e != null && e.isNotEmpty).join(', ');
+            
+            results.add({
+              'location': location,
+              'address': address.isNotEmpty ? address : '${location.latitude}, ${location.longitude}',
+              'fullPlacemark': place,
+            });
+          }
+        } catch (e) {
+          results.add({
+            'location': location,
+            'address': '${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)}',
+          });
+        }
+      }
+
       setState(() {
-        _searchResults = locations.take(5).toList();
+        _searchResults = results;
         _showSearchResults = true;
       });
     } catch (e) {
@@ -166,22 +206,44 @@ class _EnhancedLocationPickerScreenState extends State<EnhancedLocationPickerScr
         _searchResults = [];
         _showSearchResults = false;
       });
+    } finally {
+      setState(() => _isSearchingResults = false);
     }
   }
 
-  void _moveToLocation(Location location) {
+  void _moveToLocation(Map<String, dynamic> result) {
+    final Location location = result['location'];
     final newPosition = LatLng(location.latitude, location.longitude);
+    
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: newPosition, zoom: 16),
       ),
     );
+    
     setState(() {
       _center = newPosition;
       _showSearchResults = false;
       _searchController.clear();
+      // If we already have the address from search, use it
+      if (result['address'] != null) {
+        _address = result['address'];
+        if (result['fullPlacemark'] != null) {
+          final Placemark p = result['fullPlacemark'];
+          _detailedAddress = [
+            p.street,
+            p.subLocality,
+            p.locality,
+            p.administrativeArea,
+            p.country,
+          ].where((e) => e != null && e.isNotEmpty).join(', ');
+        }
+      }
     });
-    _getAddressFromCoordinates(newPosition);
+    
+    if (result['address'] == null) {
+      _getAddressFromCoordinates(newPosition);
+    }
   }
 
   void _showLocationServiceDialog() {
@@ -327,11 +389,27 @@ class _EnhancedLocationPickerScreenState extends State<EnhancedLocationPickerScr
                                   hintText: 'Search location...',
                                   border: InputBorder.none,
                                   hintStyle: TextStyle(fontSize: 14.sp),
+                                  prefixIcon: _isSearchingResults 
+                                    ? Container(
+                                        padding: REdgeInsets.all(12),
+                                        width: 48.w,
+                                        height: 48.h,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : null,
                                 ),
                                 onChanged: (value) {
-                                  if (value.length > 2) {
-                                    _searchLocation(value);
-                                  }
+                                  if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+                                  _searchDebounce = Timer(const Duration(milliseconds: 600), () {
+                                    if (value.length > 2) {
+                                      _searchLocation(value);
+                                    } else if (value.isEmpty) {
+                                      setState(() {
+                                        _searchResults = [];
+                                        _showSearchResults = false;
+                                      });
+                                    }
+                                  });
                                 },
                               ),
                             ),
@@ -340,36 +418,99 @@ class _EnhancedLocationPickerScreenState extends State<EnhancedLocationPickerScr
                                 icon: Icon(Icons.clear, size: 20.sp),
                                 onPressed: () {
                                   _searchController.clear();
+                                  _searchDebounce?.cancel();
                                   setState(() {
                                     _searchResults = [];
                                     _showSearchResults = false;
+                                    _isSearchingResults = false;
                                   });
                                 },
                               ),
                             IconButton(
                               icon: Icon(Icons.search, size: 24.sp),
-                              onPressed: () => _searchLocation(_searchController.text),
+                              onPressed: () {
+                                _searchDebounce?.cancel();
+                                _searchLocation(_searchController.text);
+                              },
                             ),
                           ],
                         ),
                         if (_showSearchResults && _searchResults.isNotEmpty)
                           Container(
-                            constraints: BoxConstraints(maxHeight: 200.h),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              itemCount: _searchResults.length,
-                              separatorBuilder: (_, __) => Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final location = _searchResults[index];
-                                return ListTile(
-                                  leading: Icon(Icons.place, color: const Color(0xFF7E1E8F)),
-                                  title: Text(
-                                    '${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)}',
-                                    style: TextStyle(fontSize: 13.sp),
+                            constraints: BoxConstraints(maxHeight: 350.h),
+                            decoration: BoxDecoration(
+                              border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: REdgeInsets.fromLTRB(16, 12, 16, 8),
+                                  child: Text(
+                                    'SEARCH RESULTS',
+                                    style: TextStyle(
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w800,
+                                      color: ColorsManager.purple,
+                                      letterSpacing: 1.2,
+                                    ),
                                   ),
-                                  onTap: () => _moveToLocation(location),
-                                );
-                              },
+                                ),
+                                Flexible(
+                                  child: ListView.separated(
+                                    shrinkWrap: true,
+                                    padding: EdgeInsets.zero,
+                                    itemCount: _searchResults.length,
+                                    separatorBuilder: (_, __) => Divider(height: 1, indent: 52.w, color: Colors.grey[100]),
+                                    itemBuilder: (context, index) {
+                                      final result = _searchResults[index];
+                                      return ListTile(
+                                        contentPadding: REdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                        leading: Container(
+                                          padding: REdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: ColorsManager.purpleSoft.withOpacity(0.5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(Icons.place_rounded, color: ColorsManager.purple, size: 20.sp),
+                                        ),
+                                        title: Text(
+                                          result['address'],
+                                          style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600, color: Colors.black87),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: Text(
+                                          '${result['location'].latitude.toStringAsFixed(4)}, ${result['location'].longitude.toStringAsFixed(4)}',
+                                          style: TextStyle(fontSize: 12.sp, color: Colors.grey[500]),
+                                        ),
+                                        onTap: () => _moveToLocation(result),
+                                      );
+                                    },
+                                  ),
+                                ),
+                               ],
+                             ),
+                           ),
+                        if (_showSearchResults && _searchResults.isEmpty && !_isSearchingResults && _searchController.text.isNotEmpty)
+                          Container(
+                            padding: REdgeInsets.all(32),
+                            width: double.infinity,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 48.sp, color: Colors.grey[300]),
+                                SizedBox(height: 12.h),
+                                Text(
+                                  'No locations found',
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 14.sp, fontWeight: FontWeight.w500),
+                                ),
+                                Text(
+                                  'Try a different or more specific search',
+                                  style: TextStyle(color: Colors.grey[400], fontSize: 12.sp),
+                                ),
+                              ],
                             ),
                           ),
                       ],
