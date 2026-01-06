@@ -77,7 +77,7 @@ class _RegisterState extends State<Register> {
           key: regFormKey,
           child: Column(
             children: [
-              Image.asset(ImagesManager.barter, height: 180),
+              Image.asset(ImagesManager.bartrix, height: 180),
               Text(
                 AppLocalizations.of(context)!.exchange_and_discover_easily,
                 textAlign: TextAlign.center,

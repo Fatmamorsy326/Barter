@@ -6,5 +6,5 @@ class ImagesManager {
   static const String placeholder = '$_basePath/placeholder.png';
   static const String emptyBox = '$_basePath/empty_box.png';
   static const String noChat = '$_basePath/no_chat.png';
-  static const String logo = '$_basePath/Logo.png';
+  static const String bartrix = '$_basePath/bartrix.png';
 }

@@ -270,9 +270,33 @@ The project is in the active development phase with core MVP features implemente
 ### Challenges and Solutions
 *   **State Management:** Managing the complex state of a trade (pending, accepted, etc.) across different screens. *Solution:* Using `Provider` for efficient state propagation.
 
-## 10. Phase 2 Planning
-### Business Model
-*   **Freemium Model:** Free basic access with limits on active listings.
-*   **Premium Subscription:** Monthly fee for unlimited listings, priority support, and "Boost" features.
-*   **Transaction Fees:** Small commission on cash-based transactions or delivery facilitation (future).
-*   **Ads:** Non-intrusive native ads in the feed (optional).
+## 11. Testing and Performance Evaluation
+Throughout the development process, testing was conducted alongside implementation to ensure that newly developed features functioned as expected and did not introduce regressions. Since the implementation was carried out using vibe coding, testing focused primarily on validating the generated and refined code through continuous execution and verification. Each feature was tested incrementally after implementation to confirm correct behavior under normal and edge-case scenarios.
+
+The testing process included:
+- **Functional Testing**: To verify that each system feature meets the specified requirements.
+- **Integration Testing**: To ensure proper interaction between different system components (e.g., Flutter frontend and Firebase backend).
+- **Manual Testing**: To validate user flows, inputs, and outputs from an end-user perspective.
+
+### 11.1 Key Bug Examples and Resolutions
+During development and testing operations, several critical bugs were identified and resolved to ensure a high-quality user experience:
+
+1. **Unread Chat Count Sync Issue**
+   - **Problem**: The unread message count in the chat list was not updating correctly after messages were read.
+   - **Resolution**: Updated the Firestore data model and implemented a more robust stream-based listener in the `ChatProvider` to handle real-time UI updates correctly.
+
+2. **Registration Data Persistence Failure**
+   - **Problem**: User names entered during the registration process were not being saved to both Firebase Auth and the Firestore user document.
+   - **Resolution**: Refactored the `AuthService` to ensure atomic updates to both Firebase Authentication and Firestore during the user creation flow.
+
+3. **Map Search Result Visibility**
+   - **Problem**: The location picker was only showing a maximum of 5 results, which was insufficient for users in densely populated areas.
+   - **Resolution**: Enhanced the search algorithm and updated the UI to display a broader set of results with a clearer empty-state message when no matches were found.
+
+4. **Missing Trade Proposal Cancellation**
+   - **Problem**: Users were unable to cancel trade proposals once they were sent, leading to "stuck" pending trades.
+   - **Resolution**: Added a "Cancel Request" feature in the `ExchangeDetailScreen` and implemented the corresponding logic to update the trade status in Firestore.
+
+5. **2FA Flow Redirection Logic**
+   - **Problem**: Users with Multi-Factor Authentication (MFA) enabled were not being correctly redirected after the initial login step.
+   - **Resolution**: Updated the login navigation logic to check for MFA enrollment status and route users to the OTP verification screen as needed.

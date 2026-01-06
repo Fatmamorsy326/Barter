@@ -1,7 +1,8 @@
-import 'package:barter/configration/theme/theme_manager.dart';
+ import 'package:barter/configration/theme/theme_manager.dart';
 import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/routes_manager/routes_manager.dart';
 import 'package:barter/firebase/firebase_service.dart';
+import 'package:barter/firebase_options.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/providers/local_providers.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +15,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(const BarterApp());
 }
