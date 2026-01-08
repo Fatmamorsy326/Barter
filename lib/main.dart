@@ -62,7 +62,7 @@ class BarterApp extends StatelessWidget {
                 ],
 
                 // Routes
-                initialRoute: Routes.splash,
+                initialRoute: Routes.startupRouter,
                 onGenerateRoute: RoutesManager.router,
               );
             },

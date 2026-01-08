@@ -1,7 +1,8 @@
 
 class Routes {
   // Splash Route
-  static const String splash = "/";
+  // static const String splash = "/";
+  static const startupRouter = '/startupRouter';
 
   // Auth Routes
   static const String login = "/login";
