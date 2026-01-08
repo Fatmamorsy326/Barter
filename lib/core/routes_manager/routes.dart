@@ -29,6 +29,7 @@ class Routes {
   static const String proposeExchange = '/propose-exchange';
   static const String exchangesList = '/exchanges';
   static const String exchangeDetail = '/exchange-detail';
+  static const String reviews = '/reviews';
 
 
   static const String onboarding = '/onboarding';

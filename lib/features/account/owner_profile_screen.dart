@@ -7,6 +7,7 @@ import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
+import 'package:barter/model/review_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -72,6 +73,8 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
             _buildStatsCard(),
             SizedBox(height: 24.h),
             _buildOwnerItems(),
+            SizedBox(height: 24.h),
+            _buildReviewsList(),
           ],
         ),
       ),
@@ -136,6 +139,23 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
             ],
           ),
         ],
+        SizedBox(height: 8.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.star_rounded, color: Colors.amber, size: 20.sp),
+            SizedBox(width: 4.w),
+            Text(
+              _owner!.averageRating.toStringAsFixed(1),
+              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(width: 4.w),
+            Text(
+              '(${_owner!.reviewCount} reviews)',
+              style: TextStyle(fontSize: 14.sp, color: Colors.grey),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -303,7 +323,9 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                                 ),
                                 SizedBox(height: 4.h),
                                 Text(
-                                  item.condition.displayName,
+                                  item.itemType == ItemType.service
+                                      ? (item.isRemote ? 'Remote Service' : 'On-site Service')
+                                      : item.condition.displayName,
                                   style: TextStyle(
                                     fontSize: 12.sp,
                                     color: Colors.grey[600],
@@ -330,6 +352,184 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildReviewsList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Reviews',
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: 12.h),
+        StreamBuilder<List<ReviewModel>>(
+          stream: FirebaseService.getUserReviews(widget.ownerId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              print('Reviews stream error: ${snapshot.error}');
+              return Center(
+                child: Padding(
+                  padding: REdgeInsets.all(16),
+                  child: Text(
+                    'Error loading reviews: ${snapshot.error}',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              );
+            }
+            final reviews = snapshot.data ?? [];
+            print('Reviews loaded: ${reviews.length}');
+            if (reviews.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: REdgeInsets.all(16),
+                  child: Text(
+                    'No reviews yet',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              );
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: reviews.length,
+              separatorBuilder: (context, index) => SizedBox(height: 12.h),
+              itemBuilder: (context, index) {
+                final review = reviews[index];
+                return _buildReviewItem(review);
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewItem(ReviewModel review) {
+    return FutureBuilder<UserModel?>(
+      future: FirebaseService.getUserById(review.reviewerId),
+      builder: (context, snapshot) {
+        final reviewer = snapshot.data;
+        return Card(
+          elevation: 2,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+          child: Padding(
+            padding: REdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: ColorsManager.purple.withOpacity(0.2),
+                          width: 2,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 20.r,
+                        backgroundColor: ColorsManager.purple.withOpacity(0.1),
+                        backgroundImage: reviewer?.photoUrl != null && reviewer!.photoUrl!.isNotEmpty
+                            ? NetworkImage(reviewer!.photoUrl!)
+                            : null,
+                        child: reviewer?.photoUrl == null || reviewer!.photoUrl!.isEmpty
+                            ? Text(
+                          reviewer != null && reviewer.name.isNotEmpty
+                              ? reviewer.name[0].toUpperCase()
+                              : 'U',
+                          style: TextStyle(
+                            color: ColorsManager.purple,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16.sp,
+                          ),
+                        )
+                            : null,
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            reviewer?.name ?? 'Unknown User',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15.sp,
+                            ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            _formatDate(review.createdAt),
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: REdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.amber.shade400, Colors.amber.shade600],
+                        ),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.star_rounded, color: Colors.white, size: 14.sp),
+                          SizedBox(width: 4.w),
+                          Text(
+                            review.rating.toStringAsFixed(1),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.sp,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (review.comment.isNotEmpty) ...[
+                  SizedBox(height: 12.h),
+                  Container(
+                    padding: REdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Text(
+                      review.comment,
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        height: 1.5,
+                        color: ColorsManager.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

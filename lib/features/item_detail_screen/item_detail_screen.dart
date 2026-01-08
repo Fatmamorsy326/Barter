@@ -259,9 +259,14 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         SizedBox(height: 8.h),
         Row(
           children: [
-            _buildTag(widget.item.category.displayName, ColorsManager.purple),
-            SizedBox(width: 8.w),
-            _buildTag(widget.item.condition.displayName, widget.item.condition.color),
+            _buildTag(
+              widget.item.itemType == ItemType.service ? 'Service' : widget.item.category.displayName,
+              ColorsManager.purple,
+            ),
+            if (widget.item.itemType == ItemType.product) ...[
+              SizedBox(width: 8.w),
+              _buildTag(widget.item.condition.displayName, widget.item.condition.color),
+            ],
           ],
         ),
       ],
@@ -321,7 +326,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 SizedBox(width: 4.w),
                 Expanded(
                   child: Text(
-                    widget.item.location,
+                    widget.item.itemType == ItemType.service && widget.item.isRemote
+                        ? 'Remote Service'
+                        : widget.item.location,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -352,14 +359,26 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600),
             ),
             SizedBox(height: 12.h),
-            _buildDetailRow(
-              AppLocalizations.of(context)!.category,
-              widget.item.category.displayName,
-            ),
-            _buildDetailRow(
-              AppLocalizations.of(context)!.condition,
-              widget.item.condition.displayName,
-            ),
+            if (widget.item.itemType == ItemType.product) ...[
+              _buildDetailRow(
+                AppLocalizations.of(context)!.category,
+                widget.item.category.displayName,
+              ),
+              _buildDetailRow(
+                AppLocalizations.of(context)!.condition,
+                widget.item.condition.displayName,
+              ),
+            ] else ...[
+              _buildDetailRow(
+                'Type',
+                'Professional Service',
+              ),
+              if (widget.item.isRemote)
+                _buildDetailRow(
+                  'Location',
+                  'Remote / Online',
+                ),
+            ],
             _buildDetailRow(
               AppLocalizations.of(context)!.posted,
               _formatDate(widget.item.createdAt),

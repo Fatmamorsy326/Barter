@@ -11,6 +11,7 @@ import 'package:barter/features/chat/chat_detail_screen.dart';
 import 'package:barter/features/account/edit_profile_screen.dart';
 import 'package:barter/features/account/settings_screen.dart';
 import 'package:barter/features/account/owner_profile_screen.dart';
+import 'package:barter/features/account/reviews_screen.dart';
 import 'package:barter/features/saved_items/saved_items_screen.dart';
 import 'package:barter/features/Authentication/otp/otp_verification_screen.dart';
 import 'package:barter/features/splash/startup_router.dart';
@@ -139,6 +140,17 @@ class RoutesManager {
           builder: (context) => OtpVerificationScreen(
             uid: args['uid'],
             email: args['email'],
+          ),
+        );
+
+      case Routes.reviews:
+        final args = settings.arguments as Map<String, dynamic>;
+        return CupertinoPageRoute(
+          builder: (context) => ReviewsScreen(
+            userId: args['userId'],
+            userName: args['userName'],
+            averageRating: args['averageRating'],
+            reviewCount: args['reviewCount'],
           ),
         );
 

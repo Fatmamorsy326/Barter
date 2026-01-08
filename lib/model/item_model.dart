@@ -23,6 +23,11 @@ enum ItemCondition {
   poor
 }
 
+enum ItemType {
+  product,
+  service
+}
+
 // Extensions for display names
 extension ItemCategoryExtension on ItemCategory {
   String get displayName {
@@ -113,6 +118,8 @@ class ItemModel {
   final DateTime createdAt;
   final bool isAvailable;
   final bool isExchanged; // NEW - Indicates if item was exchanged successfully
+  final ItemType itemType; // NEW - product or service
+  final bool isRemote;     // NEW - specifically for services
 
   ItemModel({
     required this.id,
@@ -131,6 +138,8 @@ class ItemModel {
     required this.createdAt,
     this.isAvailable = true,
     this.isExchanged = false,
+    this.itemType = ItemType.product,
+    this.isRemote = false,
   });
 
   factory ItemModel.fromJson(Map<String, dynamic> json) {
@@ -153,6 +162,8 @@ class ItemModel {
           : DateTime.now(),
       isAvailable: json['isAvailable'] ?? true,
       isExchanged: json['isExchanged'] ?? false,
+      itemType: ItemType.values[json['itemType'] ?? 0],
+      isRemote: json['isRemote'] ?? false,
     );
   }
 
@@ -174,6 +185,8 @@ class ItemModel {
       'createdAt': createdAt.toIso8601String(),
       'isAvailable': isAvailable,
       'isExchanged': isExchanged,
+      'itemType': itemType.index,
+      'isRemote': isRemote,
     };
   }
 
@@ -195,6 +208,8 @@ class ItemModel {
     DateTime? createdAt,
     bool? isAvailable,
     bool? isExchanged,
+    ItemType? itemType,
+    bool? isRemote,
   }) {
     return ItemModel(
       id: id ?? this.id,
@@ -213,6 +228,8 @@ class ItemModel {
       createdAt: createdAt ?? this.createdAt,
       isAvailable: isAvailable ?? this.isAvailable,
       isExchanged: isExchanged ?? this.isExchanged,
+      itemType: itemType ?? this.itemType,
+      isRemote: isRemote ?? this.isRemote,
     );
   }
 

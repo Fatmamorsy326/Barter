@@ -7,6 +7,7 @@ import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
 import 'package:barter/model/exchange_model.dart';
+import 'package:barter/model/review_model.dart';
 import 'package:barter/services/image_upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -151,6 +152,8 @@ class _AccountScreenState extends State<AccountScreen> {
                 children: [
                   SizedBox(height: 24.h),
                   _buildStatsCard(context),
+                  SizedBox(height: 24.h),
+                  _buildRatingAndReviews(context),
                   SizedBox(height: 24.h),
                   _buildMenuSection(context),
                 ],
@@ -469,6 +472,309 @@ class _AccountScreenState extends State<AccountScreen> {
       width: 1,
       color: ColorsManager.dividerFor(context),
     );
+  }
+
+  Widget _buildRatingAndReviews(BuildContext context) {
+    final userId = FirebaseService.currentUser?.uid;
+    if (userId == null) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          Routes.reviews,
+          arguments: {
+            'userId': userId,
+            'userName': _user!.name,
+            'averageRating': _user!.averageRating,
+            'reviewCount': _user!.reviewCount,
+          },
+        );
+      },
+      child: Container(
+        padding: REdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: ColorsManager.cardFor(context),
+          borderRadius: BorderRadius.circular(24.r),
+          boxShadow: [
+            BoxShadow(
+              color: ColorsManager.shadowFor(context),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with icon
+            Row(
+              children: [
+                Container(
+                  padding: REdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.amber.shade400, Colors.amber.shade600],
+                    ),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(Icons.star_rounded, color: Colors.white, size: 22.sp),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'My Reviews',
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: ColorsManager.textFor(context),
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'What others say about you',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: ColorsManager.textSecondaryFor(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16.sp,
+                  color: ColorsManager.textSecondaryFor(context),
+                ),
+              ],
+            ),
+            SizedBox(height: 20.h),
+            // Rating summary
+            Container(
+              padding: REdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.amber.withOpacity(0.1),
+                    Colors.orange.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(
+                  color: Colors.amber.withOpacity(0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Large rating number
+                  Column(
+                    children: [
+                      Text(
+                        _user!.averageRating.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 48.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber.shade700,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      // Star display
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < _user!.averageRating.round()
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: Colors.amber.shade600,
+                            size: 20.sp,
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                  SizedBox(width: 24.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _user!.reviewCount == 0
+                              ? 'No reviews yet'
+                              : '${_user!.reviewCount} ${_user!.reviewCount == 1 ? "Review" : "Reviews"}',
+                          style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                            color: ColorsManager.textFor(context),
+                          ),
+                        ),
+                        SizedBox(height: 6.h),
+                        Text(
+                          _user!.reviewCount == 0
+                              ? 'Complete exchanges to get reviews'
+                              : 'Tap to view all reviews',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: ColorsManager.textSecondaryFor(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewItem(ReviewModel review) {
+    return FutureBuilder<UserModel?>(
+      future: FirebaseService.getUserById(review.reviewerId),
+      builder: (context, snapshot) {
+        final reviewer = snapshot.data;
+        return Container(
+          padding: REdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ColorsManager.backgroundFor(context),
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(
+              color: ColorsManager.dividerFor(context),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // Reviewer avatar
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: ColorsManager.purple.withOpacity(0.2),
+                        width: 2,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 20.r,
+                      backgroundColor: ColorsManager.purple.withOpacity(0.1),
+                      backgroundImage: reviewer?.photoUrl != null && reviewer!.photoUrl!.isNotEmpty
+                          ? NetworkImage(reviewer!.photoUrl!)
+                          : null,
+                      child: reviewer?.photoUrl == null || reviewer!.photoUrl!.isEmpty
+                          ? Text(
+                              reviewer != null && reviewer.name.isNotEmpty
+                                  ? reviewer.name[0].toUpperCase()
+                                  : 'U',
+                              style: TextStyle(
+                                color: ColorsManager.purple,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16.sp,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          reviewer?.name ?? 'Unknown User',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15.sp,
+                            color: ColorsManager.textFor(context),
+                          ),
+                        ),
+                        SizedBox(height: 2.h),
+                        Text(
+                          _formatReviewDate(review.createdAt),
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: ColorsManager.textSecondaryFor(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Star rating badge
+                  Container(
+                    padding: REdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.amber.shade400, Colors.amber.shade600],
+                      ),
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.star_rounded, color: Colors.white, size: 14.sp),
+                        SizedBox(width: 4.w),
+                        Text(
+                          review.rating.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.sp,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (review.comment.isNotEmpty) ...[
+                SizedBox(height: 12.h),
+                Container(
+                  padding: REdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ColorsManager.cardFor(context),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Text(
+                    review.comment,
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      height: 1.5,
+                      color: ColorsManager.textFor(context),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatReviewDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      if (difference.inHours == 0) {
+        return '${difference.inMinutes}m ago';
+      }
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inDays < 30) {
+      return '${(difference.inDays / 7).floor()}w ago';
+    } else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    }
   }
 
   Widget _buildMenuSection(BuildContext context) {

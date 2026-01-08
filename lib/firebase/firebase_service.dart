@@ -5,6 +5,7 @@ import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
 import 'package:barter/model/notification_model.dart';
+import 'package:barter/model/review_model.dart';
 import 'package:barter/services/image_upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,6 +20,24 @@ class FirebaseService {
   static final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   static User? get currentUser => _auth.currentUser;
+  
+  // ==================== CACHE ====================
+  static final Map<String, UserModel> _usersCache = {};
+  static final Map<String, ItemModel> _itemsDetailCache = {};
+  static List<ItemModel>? _homeItemsCache;
+  
+  static void clearCache() {
+    _usersCache.clear();
+    _itemsDetailCache.clear();
+    _homeItemsCache = null;
+  }
+
+  static void initializeFirestore() {
+    _firestore.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
 
   // ==================== AUTH ====================
 
@@ -164,12 +183,18 @@ class FirebaseService {
   }
 
   static Future<UserModel?> getUserById(String uid) async {
+    // Check cache first
+    if (_usersCache.containsKey(uid)) {
+      return _usersCache[uid];
+    }
+
     try {
       print('🔍 Getting user from Firestore: $uid');
       final doc = await _firestore.collection('users').doc(uid).get();
 
       if (doc.exists && doc.data() != null) {
         final user = UserModel.fromJson(doc.data()!);
+        _usersCache[uid] = user; // Store in cache
         print('✅ Found user in Firestore: ${user.name}');
         return user;
       }
@@ -208,6 +233,7 @@ class FirebaseService {
 
   static Future<void> logout() async {
     await _auth.signOut();
+    clearCache(); // Clear memory cache on logout
   }
 
   static Future<void> resetPassword(String email) async {
@@ -219,6 +245,7 @@ class FirebaseService {
 
   static Future<void> updateUser(UserModel user) async {
     await _firestore.collection('users').doc(user.uid).update(user.toJson());
+    _usersCache[user.uid] = user; // Update cache
   }
 
   // ==================== ITEMS ====================
@@ -226,6 +253,9 @@ class FirebaseService {
   static Future<String> addItem(ItemModel item) async {
     final docRef = await _firestore.collection('items').add(item.toJson());
     await docRef.update({'id': docRef.id});
+    final newItem = item.copyWith(id: docRef.id);
+    _itemsDetailCache[docRef.id] = newItem; // Cache it
+    _homeItemsCache = null; // Invalidate home cache to force fetch
     return docRef.id;
   }
 
@@ -234,17 +264,23 @@ class FirebaseService {
     final docRef = await _firestore.collection('items').add(itemData);
     // Update with document ID
     await docRef.update({'id': docRef.id});
+    _homeItemsCache = null; // Invalidate cache
     return docRef.id;
   }
 
   static Future<void> updateItem(ItemModel item) async {
     await _firestore.collection('items').doc(item.id).update(item.toJson());
+    _itemsDetailCache[item.id] = item; // Update cache
+    _homeItemsCache = null; // Invalidate home cache
   }
 
   // Update item using direct Map
   static Future<void> updateItemDirect(String itemId,
       Map<String, dynamic> itemData) async {
     await _firestore.collection('items').doc(itemId).update(itemData);
+    _homeItemsCache = null; // Invalidate cache
+    // Also remove from detail cache if present to force fresh fetch
+    _itemsDetailCache.remove(itemId);
   }
 
   static Future<void> deleteItem(String itemId) async {
@@ -259,22 +295,35 @@ class FirebaseService {
   }
 
   static Stream<List<ItemModel>> getItemsStream() {
+    // If we have cached items, we can optionally provide them immediately via a controller
+    // but StreamBuilder handles snapshots well.
     return _firestore
         .collection('items')
         .where('isAvailable', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-        snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['id'] = doc.id;
-          return ItemModel.fromJson(data);
-        }).toList())
-        .handleError((e) {
+        .map((snapshot) {
+      final items = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        final item = ItemModel.fromJson(data);
+        // Cache individual items for detail screens
+        _itemsDetailCache[item.id] = item;
+        return item;
+      }).toList();
+      
+      _homeItemsCache = items; // Update home cache
+      return items;
+    }).handleError((e) {
       print('Error in getItemsStream: $e');
       return <ItemModel>[];
     });
   }
+
+  // New method to get home items from cache if available
+  static List<ItemModel>? getCachedHomeItems() => _homeItemsCache;
+  
+  static ItemModel? getCachedItem(String itemId) => _itemsDetailCache[itemId];
 
   static Stream<List<ItemModel>> getUserItemsStream(String userId) {
     return _firestore
@@ -724,12 +773,23 @@ class FirebaseService {
     if (itemIds.isEmpty) return [];
 
     try {
-      List<ItemModel> items = [];
+      List<ItemModel> results = [];
+      List<String> missingIds = [];
 
-      // Firestore 'in' query has a limit of 10 items
-      // So we need to batch the requests if we have more than 10
-      for (int i = 0; i < itemIds.length; i += 10) {
-        final batch = itemIds.skip(i).take(10).toList();
+      // Check cache first
+      for (var id in itemIds) {
+        if (_itemsDetailCache.containsKey(id)) {
+          results.add(_itemsDetailCache[id]!);
+        } else {
+          missingIds.add(id);
+        }
+      }
+
+      if (missingIds.isEmpty) return results;
+
+      // Fetch only what's missing
+      for (int i = 0; i < missingIds.length; i += 10) {
+        final batch = missingIds.skip(i).take(10).toList();
 
         final snapshot = await _firestore
             .collection('items')
@@ -740,12 +800,14 @@ class FirebaseService {
           if (doc.exists) {
             final data = doc.data();
             data['id'] = doc.id;
-            items.add(ItemModel.fromJson(data));
+            final item = ItemModel.fromJson(data);
+            _itemsDetailCache[item.id] = item; // Cache it
+            results.add(item);
           }
         }
       }
 
-      return items;
+      return results;
     } catch (e) {
       print('Error getting items by IDs: $e');
       return [];
@@ -1857,6 +1919,100 @@ static Future<void> _autoCancelPendingExchanges(
       print('❌ FIREBASE: Error verifying OTP: $e');
       return false;
     }
+  }
+
+  // ==================== REVIEWS ====================
+
+  static Future<void> submitReview({
+    required String exchangeId,
+    required String revieweeId,
+    required double rating,
+    required String comment,
+  }) async {
+    final reviewerId = currentUser!.uid;
+    final reviewId = _firestore.collection('reviews').doc().id;
+
+    final review = ReviewModel(
+      id: reviewId,
+      reviewerId: reviewerId,
+      revieweeId: revieweeId,
+      exchangeId: exchangeId,
+      rating: rating,
+      comment: comment,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        // 1. Get Exchange and User refs
+        final exchangeRef = _firestore.collection('exchanges').doc(exchangeId);
+        final userRef = _firestore.collection('users').doc(revieweeId);
+
+        final exchangeDoc = await transaction.get(exchangeRef);
+        final userDoc = await transaction.get(userRef);
+
+        if (!exchangeDoc.exists || !userDoc.exists) {
+          throw Exception('Exchange or User not found');
+        }
+
+        // 2. Add Review to collection
+        final reviewRef = _firestore.collection('reviews').doc(reviewId);
+        final reviewData = review.toJson();
+        reviewData['createdAt'] = FieldValue.serverTimestamp();
+        transaction.set(reviewRef, reviewData);
+
+        // 3. Update Exchange with review data
+        final data = exchangeDoc.data()!;
+        final isProposer = data['proposedBy'] == reviewerId;
+
+        if (isProposer) {
+          transaction.update(exchangeRef, {
+            'ratingByProposer': rating,
+            'reviewByProposer': comment,
+          });
+        } else {
+          transaction.update(exchangeRef, {
+            'ratingByAccepter': rating,
+            'reviewByAccepter': comment,
+          });
+        }
+
+        // 4. Update User stats
+        final userData = userDoc.data()!;
+        final currentRatingSum = (userData['ratingSum'] ?? 0).toDouble();
+        final currentReviewCount = (userData['reviewCount'] ?? 0) as int;
+
+        transaction.update(userRef, {
+          'ratingSum': currentRatingSum + rating,
+          'reviewCount': currentReviewCount + 1,
+        });
+      });
+    } catch (e) {
+      print('Error submitting review: $e');
+      rethrow;
+    }
+  }
+
+  static Stream<List<ReviewModel>> getUserReviews(String userId) {
+    print('Querying reviews for userId: $userId');
+    return _firestore
+        .collection('reviews')
+        .where('revieweeId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+          print('Reviews snapshot received: ${snapshot.docs.length} documents');
+          return snapshot.docs
+              .map((doc) {
+                print('Review doc data: ${doc.data()}');
+                final data = doc.data();
+                // Handle Firestore Timestamp
+                if (data['createdAt'] is Timestamp) {
+                  data['createdAt'] = (data['createdAt'] as Timestamp).toDate().toIso8601String();
+                }
+                return ReviewModel.fromJson(data);
+              })
+              .toList();
+        });
   }
 
   /// Toggles MFA for the current user.

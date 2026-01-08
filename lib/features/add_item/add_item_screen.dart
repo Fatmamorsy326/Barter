@@ -39,6 +39,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
   double? _longitude;
   String? _detailedAddress;
   bool _dynamicExchangedStatus = false;
+  ItemType _itemType = ItemType.product;
+  bool _isRemote = false;
 
   bool get _isEditable =>
       _isEditing ? (!widget.itemToEdit!.isExchanged && !_dynamicExchangedStatus) : true;
@@ -119,6 +121,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
                           ],
                         ),
                       ),
+                    _buildTypeToggle(),
+                    SizedBox(height: 24.h),
                     _buildImagePicker(),
                     SizedBox(height: 24.h),
                     _buildSectionTitle('Basic Information', Icons.info_outline_rounded),
@@ -128,16 +132,29 @@ class _AddItemScreenState extends State<AddItemScreen> {
                       _buildDivider(),
                       _buildDescriptionField(),
                     ]),
-                    SizedBox(height: 24.h),
-                    _buildSectionTitle('Details', Icons.category_rounded),
-                    SizedBox(height: 12.h),
-                    _buildFormCard([
-                      _buildCategoryDropdown(),
-                      _buildDivider(),
-                      _buildConditionDropdown(),
-                      _buildDivider(),
-                      _buildLocationField(),
-                    ]),
+                    if (_itemType == ItemType.product) ...[
+                      SizedBox(height: 24.h),
+                      _buildSectionTitle('Details', Icons.category_rounded),
+                      SizedBox(height: 12.h),
+                      _buildFormCard([
+                        _buildCategoryDropdown(),
+                        _buildDivider(),
+                        _buildConditionDropdown(),
+                        _buildDivider(),
+                        _buildLocationField(),
+                      ]),
+                    ] else ...[
+                      SizedBox(height: 24.h),
+                      _buildSectionTitle('Service Details', Icons.settings_suggest_rounded),
+                      SizedBox(height: 12.h),
+                      _buildFormCard([
+                        _buildRemoteToggle(),
+                        if (!_isRemote) ...[
+                          _buildDivider(),
+                          _buildLocationField(),
+                        ],
+                      ]),
+                    ],
                     SizedBox(height: 24.h),
                     _buildSectionTitle('Exchange Preferences', Icons.swap_horiz_rounded),
                     SizedBox(height: 12.h),
@@ -251,6 +268,117 @@ class _AddItemScreenState extends State<AddItemScreen> {
     );
   }
 
+  // ==================== TYPE TOGGLE ====================
+
+  Widget _buildTypeToggle() {
+    if (!_isEditable) return const SizedBox.shrink();
+
+    return Container(
+      padding: REdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: ColorsManager.cardFor(context),
+        borderRadius: BorderRadius.circular(20.r),
+        boxShadow: [
+          BoxShadow(
+            color: ColorsManager.shadowFor(context),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _buildTypeOption(ItemType.product, 'Product', Icons.shopping_bag_rounded),
+          _buildTypeOption(ItemType.service, 'Service', Icons.handshake_rounded),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeOption(ItemType type, String label, IconData icon) {
+    bool isSelected = _itemType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _itemType = type;
+            if (type == ItemType.service) {
+              _selectedCategory = ItemCategory.service;
+            } else {
+              if (_selectedCategory == ItemCategory.service) {
+                _selectedCategory = ItemCategory.other;
+              }
+            }
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: REdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [ColorsManager.gradientStart, ColorsManager.gradientEnd],
+                  )
+                : null,
+            color: isSelected ? null : Colors.transparent,
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : ColorsManager.grey,
+                size: 20.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : ColorsManager.grey,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRemoteToggle() {
+    return Padding(
+      padding: REdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(Icons.language_rounded, color: ColorsManager.purple, size: 20.sp),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Remote Service',
+                  style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'Can this be done online?',
+                  style: TextStyle(fontSize: 12.sp, color: ColorsManager.grey),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: _isRemote,
+            activeColor: ColorsManager.purple,
+            onChanged: _isEditable ? (val) => setState(() => _isRemote = val) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==================== IMAGE PICKER ====================
 
   Widget _buildImagePicker() {
@@ -300,7 +428,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
           ),
           SizedBox(height: 4.h),
           Text(
-            'Add up to 5 photos of your item',
+            _itemType == ItemType.product
+                ? 'Add up to 5 photos of your item'
+                : 'Add work samples or portfolio images',
             style: TextStyle(fontSize: 12.sp, color: ColorsManager.grey),
           ),
           SizedBox(height: 16.h),
@@ -641,8 +771,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
           return null;
         },
         decoration: InputDecoration(
-          labelText: AppLocalizations.of(context)!.item_title,
-          hintText: AppLocalizations.of(context)!.enter_title,
+          labelText: _itemType == ItemType.product
+              ? AppLocalizations.of(context)!.item_title
+              : 'Service Title',
+          hintText: _itemType == ItemType.product
+              ? AppLocalizations.of(context)!.enter_title
+              : 'Enter service name',
           prefixIcon: Icon(Icons.title_rounded, color: ColorsManager.purple),
           border: InputBorder.none,
           contentPadding: REdgeInsets.symmetric(vertical: 8),
@@ -671,7 +805,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
         },
         decoration: InputDecoration(
           labelText: AppLocalizations.of(context)!.description,
-          hintText: AppLocalizations.of(context)!.enter_description,
+          hintText: _itemType == ItemType.product
+              ? AppLocalizations.of(context)!.enter_description
+              : 'Describe the service you provide',
           prefixIcon: Padding(
             padding: REdgeInsets.only(bottom: 60),
             child: Icon(Icons.description_rounded, color: ColorsManager.purple),
@@ -697,7 +833,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
           border: InputBorder.none,
           contentPadding: REdgeInsets.symmetric(vertical: 8),
         ),
-        items: ItemCategory.values.map((cat) {
+        items: ItemCategory.values.where((cat) {
+          if (_itemType == ItemType.product) {
+            return cat != ItemCategory.service;
+          }
+          return true;
+        }).map((cat) {
           return DropdownMenuItem(
             value: cat,
             child: Text(cat.displayName),
@@ -769,8 +910,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
               return null;
             },
             decoration: InputDecoration(
-              labelText: AppLocalizations.of(context)!.location,
-              hintText: 'Tap map icon to select',
+              labelText: _itemType == ItemType.product
+                  ? AppLocalizations.of(context)!.location
+                  : 'Service Area / Location',
+              hintText: _isRemote ? 'Available Remote (Optional location)' : 'Tap map icon to select',
               prefixIcon: Icon(Icons.location_on_rounded, color: ColorsManager.purple),
               suffixIcon: IconButton(
                 icon: Container(
@@ -872,6 +1015,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
     if (item.latitude != null) _latitude = item.latitude;
     if (item.longitude != null) _longitude = item.longitude;
     if (item.detailedAddress != null) _detailedAddress = item.detailedAddress;
+    _itemType = item.itemType;
+    _isRemote = item.isRemote;
   }
 
 // Update the itemData in _submitItem to include coordinates:
@@ -1025,12 +1170,16 @@ class _AddItemScreenState extends State<AddItemScreen> {
         'preferredExchange': _preferredExchangeController.text.trim().isEmpty
             ? null
             : _preferredExchangeController.text.trim(),
-        'location': _locationController.text.trim(),
-        'latitude': _latitude, // Add this
-        'longitude': _longitude, // Add this
-        'detailedAddress': _detailedAddress, // Add this
+        'location': _itemType == ItemType.service && _isRemote
+            ? 'Remote'
+            : _locationController.text.trim(),
+        'latitude': _itemType == ItemType.service && _isRemote ? null : _latitude,
+        'longitude': _itemType == ItemType.service && _isRemote ? null : _longitude,
+        'detailedAddress': _itemType == ItemType.service && _isRemote ? null : _detailedAddress,
         'createdAt': DateTime.now().toIso8601String(),
         'isAvailable': true,
+        'itemType': _itemType.index,
+        'isRemote': _isRemote,
       };
 
       if (_isEditing) {

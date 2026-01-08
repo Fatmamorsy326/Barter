@@ -611,7 +611,9 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
                           ),
                           SizedBox(height: 4.h),
                           Text(
-                            item.condition.displayName,
+                            item.itemType == ItemType.service
+                                ? (item.isRemote ? 'Remote Service' : 'On-site Service')
+                                : item.condition.displayName,
                             style: TextStyle(
                               fontSize: 12.sp,
                               color: ColorsManager.textSecondaryFor(context),
