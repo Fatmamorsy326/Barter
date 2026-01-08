@@ -478,125 +478,64 @@ class _AccountScreenState extends State<AccountScreen> {
     final userId = FirebaseService.currentUser?.uid;
     if (userId == null) return const SizedBox.shrink();
 
-    return Container(
-      padding: REdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: ColorsManager.cardFor(context),
-        borderRadius: BorderRadius.circular(24.r),
-        boxShadow: [
-          BoxShadow(
-            color: ColorsManager.shadowFor(context),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with icon
-          Row(
-            children: [
-              Container(
-                padding: REdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.amber.shade400, Colors.amber.shade600],
-                  ),
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Icon(Icons.star_rounded, color: Colors.white, size: 22.sp),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'My Reviews',
-                      style: TextStyle(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.bold,
-                        color: ColorsManager.textFor(context),
-                      ),
-                    ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      'What others say about you',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: ColorsManager.textSecondaryFor(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 20.h),
-          // Rating summary
-          Container(
-            padding: REdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.amber.withOpacity(0.1),
-                  Colors.orange.withOpacity(0.05),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(
-                color: Colors.amber.withOpacity(0.2),
-                width: 1.5,
-              ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          Routes.reviews,
+          arguments: {
+            'userId': userId,
+            'userName': _user!.name,
+            'averageRating': _user!.averageRating,
+            'reviewCount': _user!.reviewCount,
+          },
+        );
+      },
+      child: Container(
+        padding: REdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: ColorsManager.cardFor(context),
+          borderRadius: BorderRadius.circular(24.r),
+          boxShadow: [
+            BoxShadow(
+              color: ColorsManager.shadowFor(context),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-            child: Row(
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with icon
+            Row(
               children: [
-                // Large rating number
-                Column(
-                  children: [
-                    Text(
-                      _user!.averageRating.toStringAsFixed(1),
-                      style: TextStyle(
-                        fontSize: 36.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.amber.shade700,
-                      ),
+                Container(
+                  padding: REdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.amber.shade400, Colors.amber.shade600],
                     ),
-                    // Star display
-                    Row(
-                      children: List.generate(5, (index) {
-                        return Icon(
-                          index < _user!.averageRating.round()
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          color: Colors.amber.shade600,
-                          size: 18.sp,
-                        );
-                      }),
-                    ),
-                  ],
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(Icons.star_rounded, color: Colors.white, size: 22.sp),
                 ),
-                SizedBox(width: 20.w),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _user!.reviewCount == 0
-                            ? 'No reviews yet'
-                            : '${_user!.reviewCount} ${_user!.reviewCount == 1 ? "Review" : "Reviews"}',
+                        'My Reviews',
                         style: TextStyle(
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
                           color: ColorsManager.textFor(context),
                         ),
                       ),
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 2.h),
                       Text(
-                        _user!.reviewCount == 0
-                            ? 'Complete exchanges to get reviews'
-                            : 'Based on completed exchanges',
+                        'What others say about you',
                         style: TextStyle(
                           fontSize: 12.sp,
                           color: ColorsManager.textSecondaryFor(context),
@@ -605,182 +544,91 @@ class _AccountScreenState extends State<AccountScreen> {
                     ],
                   ),
                 ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16.sp,
+                  color: ColorsManager.textSecondaryFor(context),
+                ),
               ],
             ),
-          ),
-          SizedBox(height: 20.h),
-          // Reviews list
-          StreamBuilder<List<ReviewModel>>(
-            stream: FirebaseService.getUserReviews(userId),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Container(
-                  padding: REdgeInsets.all(32),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
-                    ),
-                  ),
-                );
-              }
-              if (snapshot.hasError) {
-                return Container(
-                  padding: REdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Row(
+            SizedBox(height: 20.h),
+            // Rating summary
+            Container(
+              padding: REdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.amber.withOpacity(0.1),
+                    Colors.orange.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(
+                  color: Colors.amber.withOpacity(0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Large rating number
+                  Column(
                     children: [
-                      Icon(Icons.error_outline, color: Colors.red),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: Text(
-                          'Error loading reviews',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              final reviews = snapshot.data ?? [];
-              if (reviews.isEmpty) {
-                return Container(
-                  padding: REdgeInsets.symmetric(vertical: 32),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.rate_review_outlined,
-                        size: 48.sp,
-                        color: ColorsManager.textSecondaryFor(context).withOpacity(0.5),
-                      ),
-                      SizedBox(height: 12.h),
                       Text(
-                        'No reviews yet',
+                        _user!.averageRating.toStringAsFixed(1),
                         style: TextStyle(
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
-                          color: ColorsManager.textSecondaryFor(context),
+                          fontSize: 48.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber.shade700,
                         ),
                       ),
                       SizedBox(height: 4.h),
-                      Text(
-                        'Reviews will appear here after exchanges',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: ColorsManager.textSecondaryFor(context).withOpacity(0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Recent Reviews',
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          color: ColorsManager.textSecondaryFor(context),
-                        ),
-                      ),
-                      if (reviews.length > 2)
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              Routes.reviews,
-                              arguments: {
-                                'userId': userId,
-                                'userName': _user!.name,
-                                'averageRating': _user!.averageRating,
-                                'reviewCount': _user!.reviewCount,
-                              },
-                            );
-                          },
-                          child: Row(
-                            children: [
-                              Text(
-                                'View All (${reviews.length})',
-                                style: TextStyle(
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: ColorsManager.purple,
-                                ),
-                              ),
-                              SizedBox(width: 4.w),
-                              Icon(
-                                Icons.arrow_forward_rounded,
-                                size: 16.sp,
-                                color: ColorsManager.purple,
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 12.h),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: reviews.length > 2 ? 2 : reviews.length,
-                    separatorBuilder: (_, __) => SizedBox(height: 12.h),
-                    itemBuilder: (context, index) {
-                      return _buildReviewItem(reviews[index]);
-                    },
-                  ),
-                  if (reviews.length > 2) ...[
-                    SizedBox(height: 12.h),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(
-                            context,
-                            Routes.reviews,
-                            arguments: {
-                              'userId': userId,
-                              'userName': _user!.name,
-                              'averageRating': _user!.averageRating,
-                              'reviewCount': _user!.reviewCount,
-                            },
+                      // Star display
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < _user!.averageRating.round()
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: Colors.amber.shade600,
+                            size: 20.sp,
                           );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: REdgeInsets.symmetric(vertical: 12),
-                          side: BorderSide(color: ColorsManager.purple, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r),
+                        }),
+                      ),
+                    ],
+                  ),
+                  SizedBox(width: 24.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _user!.reviewCount == 0
+                              ? 'No reviews yet'
+                              : '${_user!.reviewCount} ${_user!.reviewCount == 1 ? "Review" : "Reviews"}',
+                          style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                            color: ColorsManager.textFor(context),
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'View All ${reviews.length} Reviews',
-                              style: TextStyle(
-                                color: ColorsManager.purple,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Icon(Icons.arrow_forward_rounded, size: 18.sp),
-                          ],
+                        SizedBox(height: 6.h),
+                        Text(
+                          _user!.reviewCount == 0
+                              ? 'Complete exchanges to get reviews'
+                              : 'Tap to view all reviews',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: ColorsManager.textSecondaryFor(context),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ],
-              );
-            },
-          ),
-        ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
