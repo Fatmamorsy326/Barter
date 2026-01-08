@@ -19,6 +19,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Initialize Firestore settings (Persistence)
+  FirebaseService.initializeFirestore();
+
   runApp(const BarterApp());
 }
 

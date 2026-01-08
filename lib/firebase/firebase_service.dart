@@ -20,6 +20,24 @@ class FirebaseService {
   static final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   static User? get currentUser => _auth.currentUser;
+  
+  // ==================== CACHE ====================
+  static final Map<String, UserModel> _usersCache = {};
+  static final Map<String, ItemModel> _itemsDetailCache = {};
+  static List<ItemModel>? _homeItemsCache;
+  
+  static void clearCache() {
+    _usersCache.clear();
+    _itemsDetailCache.clear();
+    _homeItemsCache = null;
+  }
+
+  static void initializeFirestore() {
+    _firestore.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
 
   // ==================== AUTH ====================
 
@@ -165,12 +183,18 @@ class FirebaseService {
   }
 
   static Future<UserModel?> getUserById(String uid) async {
+    // Check cache first
+    if (_usersCache.containsKey(uid)) {
+      return _usersCache[uid];
+    }
+
     try {
       print('🔍 Getting user from Firestore: $uid');
       final doc = await _firestore.collection('users').doc(uid).get();
 
       if (doc.exists && doc.data() != null) {
         final user = UserModel.fromJson(doc.data()!);
+        _usersCache[uid] = user; // Store in cache
         print('✅ Found user in Firestore: ${user.name}');
         return user;
       }
@@ -209,6 +233,7 @@ class FirebaseService {
 
   static Future<void> logout() async {
     await _auth.signOut();
+    clearCache(); // Clear memory cache on logout
   }
 
   static Future<void> resetPassword(String email) async {
@@ -220,6 +245,7 @@ class FirebaseService {
 
   static Future<void> updateUser(UserModel user) async {
     await _firestore.collection('users').doc(user.uid).update(user.toJson());
+    _usersCache[user.uid] = user; // Update cache
   }
 
   // ==================== ITEMS ====================
@@ -227,6 +253,9 @@ class FirebaseService {
   static Future<String> addItem(ItemModel item) async {
     final docRef = await _firestore.collection('items').add(item.toJson());
     await docRef.update({'id': docRef.id});
+    final newItem = item.copyWith(id: docRef.id);
+    _itemsDetailCache[docRef.id] = newItem; // Cache it
+    _homeItemsCache = null; // Invalidate home cache to force fetch
     return docRef.id;
   }
 
@@ -235,17 +264,23 @@ class FirebaseService {
     final docRef = await _firestore.collection('items').add(itemData);
     // Update with document ID
     await docRef.update({'id': docRef.id});
+    _homeItemsCache = null; // Invalidate cache
     return docRef.id;
   }
 
   static Future<void> updateItem(ItemModel item) async {
     await _firestore.collection('items').doc(item.id).update(item.toJson());
+    _itemsDetailCache[item.id] = item; // Update cache
+    _homeItemsCache = null; // Invalidate home cache
   }
 
   // Update item using direct Map
   static Future<void> updateItemDirect(String itemId,
       Map<String, dynamic> itemData) async {
     await _firestore.collection('items').doc(itemId).update(itemData);
+    _homeItemsCache = null; // Invalidate cache
+    // Also remove from detail cache if present to force fresh fetch
+    _itemsDetailCache.remove(itemId);
   }
 
   static Future<void> deleteItem(String itemId) async {
@@ -260,22 +295,35 @@ class FirebaseService {
   }
 
   static Stream<List<ItemModel>> getItemsStream() {
+    // If we have cached items, we can optionally provide them immediately via a controller
+    // but StreamBuilder handles snapshots well.
     return _firestore
         .collection('items')
         .where('isAvailable', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-        snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['id'] = doc.id;
-          return ItemModel.fromJson(data);
-        }).toList())
-        .handleError((e) {
+        .map((snapshot) {
+      final items = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        final item = ItemModel.fromJson(data);
+        // Cache individual items for detail screens
+        _itemsDetailCache[item.id] = item;
+        return item;
+      }).toList();
+      
+      _homeItemsCache = items; // Update home cache
+      return items;
+    }).handleError((e) {
       print('Error in getItemsStream: $e');
       return <ItemModel>[];
     });
   }
+
+  // New method to get home items from cache if available
+  static List<ItemModel>? getCachedHomeItems() => _homeItemsCache;
+  
+  static ItemModel? getCachedItem(String itemId) => _itemsDetailCache[itemId];
 
   static Stream<List<ItemModel>> getUserItemsStream(String userId) {
     return _firestore
@@ -725,12 +773,23 @@ class FirebaseService {
     if (itemIds.isEmpty) return [];
 
     try {
-      List<ItemModel> items = [];
+      List<ItemModel> results = [];
+      List<String> missingIds = [];
 
-      // Firestore 'in' query has a limit of 10 items
-      // So we need to batch the requests if we have more than 10
-      for (int i = 0; i < itemIds.length; i += 10) {
-        final batch = itemIds.skip(i).take(10).toList();
+      // Check cache first
+      for (var id in itemIds) {
+        if (_itemsDetailCache.containsKey(id)) {
+          results.add(_itemsDetailCache[id]!);
+        } else {
+          missingIds.add(id);
+        }
+      }
+
+      if (missingIds.isEmpty) return results;
+
+      // Fetch only what's missing
+      for (int i = 0; i < missingIds.length; i += 10) {
+        final batch = missingIds.skip(i).take(10).toList();
 
         final snapshot = await _firestore
             .collection('items')
@@ -741,12 +800,14 @@ class FirebaseService {
           if (doc.exists) {
             final data = doc.data();
             data['id'] = doc.id;
-            items.add(ItemModel.fromJson(data));
+            final item = ItemModel.fromJson(data);
+            _itemsDetailCache[item.id] = item; // Cache it
+            results.add(item);
           }
         }
       }
 
-      return items;
+      return results;
     } catch (e) {
       print('Error getting items by IDs: $e');
       return [];

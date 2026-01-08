@@ -883,8 +883,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return StreamBuilder<List<ItemModel>>(
       stream: FirebaseService.getItemsStream(),
+      initialData: FirebaseService.getCachedHomeItems(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && snapshot.data == null) {
           return _buildShimmerGrid();
         }
 
