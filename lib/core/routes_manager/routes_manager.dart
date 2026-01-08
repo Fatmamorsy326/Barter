@@ -13,7 +13,7 @@ import 'package:barter/features/account/settings_screen.dart';
 import 'package:barter/features/account/owner_profile_screen.dart';
 import 'package:barter/features/saved_items/saved_items_screen.dart';
 import 'package:barter/features/Authentication/otp/otp_verification_screen.dart';
-import 'package:barter/features/splash/splash_screen.dart';
+import 'package:barter/features/splash/startup_router.dart';
 import 'package:barter/features/onboarding/onboarding_screen.dart';
 import 'package:barter/features/notifications/notifications_screen.dart';
 import 'package:barter/model/item_model.dart';
@@ -23,10 +23,10 @@ import 'package:flutter/material.dart';
 class RoutesManager {
   static Route? router(RouteSettings settings) {
     switch (settings.name) {
-      // Splash Route
-      case Routes.splash:
+      // // Splash Route
+      case Routes.startupRouter:
         return MaterialPageRoute(
-          builder: (context) => const SplashScreen(),
+          builder: (context) => const StartupRouter(),
         );
 
       // Onboarding Route
