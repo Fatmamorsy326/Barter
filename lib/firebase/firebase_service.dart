@@ -183,6 +183,29 @@ class FirebaseService {
   }
 
 
+  static Future<UserCredential> signInAnonymously() async {
+    try {
+      final credential = await _auth.signInAnonymously();
+      print('✅ FIREBASE: Signed in anonymously: ${credential.user?.uid}');
+
+      // Create a minimal user document for anonymous user
+      if (credential.user != null) {
+        await _firestore.collection('users').doc(credential.user!.uid).set({
+          'uid': credential.user!.uid,
+          'email': '',
+          'name': 'Guest',
+          'isAnonymous': true,
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+      }
+
+      return credential;
+    } catch (e) {
+      print('❌ FIREBASE: Anonymous sign in failed: $e');
+      rethrow;
+    }
+  }
+
   static Future<void> logout() async {
     await _auth.signOut();
   }

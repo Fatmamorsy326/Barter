@@ -515,12 +515,14 @@ Location: ${widget.item.location}
   }
 
   Future<void> _toggleFavorite() async {
-    final userId = FirebaseService.currentUser?.uid;
+    final user = FirebaseService.currentUser;
 
-    if (userId == null) {
+    if (user == null || user.isAnonymous) {
       LoginRequiredSheet.show(context, 'Favorite Items');
       return;
     }
+
+    final userId = user.uid;
 
     try {
       final newState = await FirebaseService.toggleSavedItem(userId, widget.item.id);
@@ -540,6 +542,12 @@ Location: ${widget.item.location}
   void _showOwnerProfile(UserModel? owner) {
     if (owner == null) return;
 
+    final user = FirebaseService.currentUser;
+    if (user == null || user.isAnonymous) {
+      LoginRequiredSheet.show(context, 'View Profile');
+      return;
+    }
+
     Navigator.pushNamed(
       context,
       Routes.ownerProfile,
@@ -552,7 +560,7 @@ Location: ${widget.item.location}
   Future<void> _startChat(BuildContext context) async {
     final currentUser = FirebaseService.currentUser;
 
-    if (currentUser == null) {
+    if (currentUser == null || currentUser.isAnonymous) {
       LoginRequiredSheet.show(context, 'Proposing Exchanges');
       return;
     }
@@ -731,7 +739,7 @@ Location: ${widget.item.location}
 
   Widget _buildLocationMap(BuildContext context) {
     final position = LatLng(widget.item.latitude!, widget.item.longitude!);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -951,6 +959,7 @@ Location: ${widget.item.location}
     );
   }
 
+  // REPLACE your existing _buildOwnerBottomBar method with this:
   // REPLACE your existing _buildOwnerBottomBar method with this:
   Widget _buildOwnerBottomBar(BuildContext context) {
     return FutureBuilder<bool>(

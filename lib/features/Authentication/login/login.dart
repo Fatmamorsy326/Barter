@@ -307,7 +307,7 @@ class _LoginState extends State<Login> {
     }
   }
 
-// Add this method to show email not verified dialog
+  // Add this method to show email not verified dialog
   Future<void> _showEmailNotVerifiedDialog() async {
     final user = FirebaseService.currentUser;
 
@@ -512,8 +512,34 @@ class _LoginState extends State<Login> {
     }
   }
 
-  void _continueAsGuest() {
-    Navigator.pushReplacementNamed(context, Routes.mainLayout);
+  Future<void> _continueAsGuest() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+    UiUtils.showLoading(context, false);
+
+    try {
+      await FirebaseService.signInAnonymously();
+      
+      if (mounted) {
+        UiUtils.hideDialog(context);
+        UiUtils.showToastMessage(
+          'Detailed features are restricted in guest mode',
+          ColorsManager.purple,
+        );
+        Navigator.pushReplacementNamed(context, Routes.mainLayout);
+      }
+    } catch (e) {
+      if (mounted) {
+        UiUtils.hideDialog(context);
+        UiUtils.showToastMessage(
+          'Failed to sign in as guest',
+          Colors.red,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _showForgotPasswordDialog() {

@@ -266,21 +266,24 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onTap(int index) {
-    if (index != 0 && FirebaseService.currentUser == null) {
-      String feature = '';
-      switch (index) {
-        case 1:
-          feature = AppLocalizations.of(context)!.chat;
-          break;
-        case 2:
-          feature = AppLocalizations.of(context)!.my_listing;
-          break;
-        case 3:
-          feature = AppLocalizations.of(context)!.account;
-          break;
-      }
-      LoginRequiredSheet.show(context, feature);
-      return;
+    if (index != 0) {
+       final user = FirebaseService.currentUser;
+       if (user == null || user.isAnonymous) {
+          String feature = '';
+          switch (index) {
+            case 1:
+              feature = AppLocalizations.of(context)!.chat;
+              break;
+            case 2:
+              feature = AppLocalizations.of(context)!.my_listing;
+              break;
+            case 3:
+              feature = AppLocalizations.of(context)!.account;
+              break;
+          }
+          LoginRequiredSheet.show(context, feature);
+          return;
+       }
     }
     setState(() {
       _currentIndex = index;
@@ -288,7 +291,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _createItem() {
-    if (FirebaseService.currentUser == null) {
+    final user = FirebaseService.currentUser;
+    if (user == null || user.isAnonymous) {
       LoginRequiredSheet.show(context, 'Add Item');
     } else {
       Navigator.pushNamed(context, Routes.addItem);
