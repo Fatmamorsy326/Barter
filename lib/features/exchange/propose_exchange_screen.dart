@@ -1,4 +1,5 @@
 import 'package:barter/core/resources/colors_manager.dart';
+import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/core/ui_utils.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/model/exchange_model.dart';
@@ -132,7 +133,11 @@ class _ProposeExchangeScreenState extends State<ProposeExchangeScreen> {
             ),
             SizedBox(height: 32.h),
             ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pushNamed(context, Routes.addItem).then((_) {
+                  _loadMyItems();
+                });
+              },
               icon: const Icon(Icons.add_rounded),
               label: const Text('Add Item'),
               style: ElevatedButton.styleFrom(

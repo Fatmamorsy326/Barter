@@ -838,6 +838,47 @@ class FirebaseService {
       }
     }
 
+    // Check for duplicate pending requests
+    final existingQuery = await _firestore
+        .collection('exchanges')
+        .where('proposedBy', isEqualTo: currentUserId)
+        .where('proposedTo', isEqualTo: proposedTo)
+        .where('status', isEqualTo: 0) // pending
+        .get();
+
+    final currentOfferedIds = itemsOffered.map((i) => i.itemId).toSet();
+    final currentRequestedIds = itemsRequested.map((i) => i.itemId).toSet();
+
+    for (var doc in existingQuery.docs) {
+      final data = doc.data();
+      
+      // Extract item IDs from existing request (handle list and legacy single item)
+      Set<String> existingOfferedIds = {};
+      if (data['itemsOffered'] != null) {
+        existingOfferedIds = (data['itemsOffered'] as List).map((i) => i['itemId'] as String).toSet();
+      } else if (data['itemOffered'] != null) {
+        existingOfferedIds.add(data['itemOffered']['itemId']);
+      }
+
+      Set<String> existingRequestedIds = {};
+      if (data['itemsRequested'] != null) {
+        existingRequestedIds = (data['itemsRequested'] as List).map((i) => i['itemId'] as String).toSet();
+      } else if (data['itemRequested'] != null) {
+        existingRequestedIds.add(data['itemRequested']['itemId']);
+      }
+
+      // Check intersection and size equality to determine if sets are equal
+      final bool offeredMatch = existingOfferedIds.length == currentOfferedIds.length &&
+          existingOfferedIds.containsAll(currentOfferedIds);
+      
+      final bool requestedMatch = existingRequestedIds.length == currentRequestedIds.length &&
+          existingRequestedIds.containsAll(currentRequestedIds);
+
+      if (offeredMatch && requestedMatch) {
+         throw Exception('You have already sent this exact exchange request.');
+      }
+    }
+
     // Create or get existing chat for this item (using the first requested item as context)
     final chatId = await createOrGetChat(
       proposedTo,
