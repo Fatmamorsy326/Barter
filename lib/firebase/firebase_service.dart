@@ -5,6 +5,7 @@ import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/item_model.dart';
 import 'package:barter/model/user_model.dart';
 import 'package:barter/model/notification_model.dart';
+import 'package:barter/model/review_model.dart';
 import 'package:barter/services/image_upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1857,6 +1858,100 @@ static Future<void> _autoCancelPendingExchanges(
       print('❌ FIREBASE: Error verifying OTP: $e');
       return false;
     }
+  }
+
+  // ==================== REVIEWS ====================
+
+  static Future<void> submitReview({
+    required String exchangeId,
+    required String revieweeId,
+    required double rating,
+    required String comment,
+  }) async {
+    final reviewerId = currentUser!.uid;
+    final reviewId = _firestore.collection('reviews').doc().id;
+
+    final review = ReviewModel(
+      id: reviewId,
+      reviewerId: reviewerId,
+      revieweeId: revieweeId,
+      exchangeId: exchangeId,
+      rating: rating,
+      comment: comment,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        // 1. Get Exchange and User refs
+        final exchangeRef = _firestore.collection('exchanges').doc(exchangeId);
+        final userRef = _firestore.collection('users').doc(revieweeId);
+
+        final exchangeDoc = await transaction.get(exchangeRef);
+        final userDoc = await transaction.get(userRef);
+
+        if (!exchangeDoc.exists || !userDoc.exists) {
+          throw Exception('Exchange or User not found');
+        }
+
+        // 2. Add Review to collection
+        final reviewRef = _firestore.collection('reviews').doc(reviewId);
+        final reviewData = review.toJson();
+        reviewData['createdAt'] = FieldValue.serverTimestamp();
+        transaction.set(reviewRef, reviewData);
+
+        // 3. Update Exchange with review data
+        final data = exchangeDoc.data()!;
+        final isProposer = data['proposedBy'] == reviewerId;
+
+        if (isProposer) {
+          transaction.update(exchangeRef, {
+            'ratingByProposer': rating,
+            'reviewByProposer': comment,
+          });
+        } else {
+          transaction.update(exchangeRef, {
+            'ratingByAccepter': rating,
+            'reviewByAccepter': comment,
+          });
+        }
+
+        // 4. Update User stats
+        final userData = userDoc.data()!;
+        final currentRatingSum = (userData['ratingSum'] ?? 0).toDouble();
+        final currentReviewCount = (userData['reviewCount'] ?? 0) as int;
+
+        transaction.update(userRef, {
+          'ratingSum': currentRatingSum + rating,
+          'reviewCount': currentReviewCount + 1,
+        });
+      });
+    } catch (e) {
+      print('Error submitting review: $e');
+      rethrow;
+    }
+  }
+
+  static Stream<List<ReviewModel>> getUserReviews(String userId) {
+    print('Querying reviews for userId: $userId');
+    return _firestore
+        .collection('reviews')
+        .where('revieweeId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+          print('Reviews snapshot received: ${snapshot.docs.length} documents');
+          return snapshot.docs
+              .map((doc) {
+                print('Review doc data: ${doc.data()}');
+                final data = doc.data();
+                // Handle Firestore Timestamp
+                if (data['createdAt'] is Timestamp) {
+                  data['createdAt'] = (data['createdAt'] as Timestamp).toDate().toIso8601String();
+                }
+                return ReviewModel.fromJson(data);
+              })
+              .toList();
+        });
   }
 
   /// Toggles MFA for the current user.

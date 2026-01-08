@@ -602,7 +602,7 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
   }
 
   Widget _buildBottomActions(bool isProposer, bool isPending, bool isAccepted) {
-    if (!isPending && !isAccepted) return const SizedBox.shrink();
+    if (!isPending && !isAccepted && _exchange!.status != ExchangeStatus.completed) return const SizedBox.shrink();
     if (isPending && isProposer) {
       return Container(
         padding: REdgeInsets.fromLTRB(20, 20, 20, 34),
@@ -719,6 +719,59 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
           ),
         ),
       );
+    }
+
+    if (_exchange!.status == ExchangeStatus.completed) {
+      final isProposer = _exchange!.proposedBy == FirebaseService.currentUser!.uid;
+      final hasReviewed = isProposer
+          ? _exchange!.ratingByProposer != null
+          : _exchange!.ratingByAccepter != null;
+
+      if (hasReviewed) {
+        return Container(
+          width: double.infinity,
+          padding: REdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: Colors.green.withOpacity(0.3), width: 1.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.green, size: 20.sp),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  'Thank you for your review!',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.sp,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _showReviewDialog,
+            icon: const Icon(Icons.star_rate_rounded),
+            label: const Text('Leave a Review'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber[700],
+              foregroundColor: Colors.white,
+              padding: REdgeInsets.symmetric(vertical: 16),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+            ),
+          ),
+        );
+      }
     }
 
     return const SizedBox.shrink();
@@ -1101,5 +1154,97 @@ class _ExchangeDetailScreenState extends State<ExchangeDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _showReviewDialog() {
+    double rating = 5;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Leave a Review'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('How was your experience?'),
+                SizedBox(height: 16.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    return IconButton(
+                      icon: Icon(
+                        index < rating ? Icons.star_rounded : Icons.star_border_rounded,
+                        color: Colors.amber,
+                        size: 32.sp,
+                      ),
+                      onPressed: () {
+                        setDialogState(() => rating = index + 1.0);
+                      },
+                    );
+                  }),
+                ),
+                SizedBox(height: 16.h),
+                TextField(
+                  controller: commentController,
+                  decoration: InputDecoration(
+                    labelText: 'Write a comment...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (commentController.text.trim().isEmpty) {
+                    UiUtils.showToastMessage('Please write a comment', Colors.orange);
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                  await _submitReview(rating, commentController.text.trim());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ColorsManager.purpleFor(context),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Submit'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _submitReview(double rating, String comment) async {
+    try {
+      UiUtils.showLoading(context, false);
+      final userId = FirebaseService.currentUser!.uid;
+      final otherUserId = _exchange!.proposedBy == userId
+          ? _exchange!.proposedTo
+          : _exchange!.proposedBy;
+
+      await FirebaseService.submitReview(
+        exchangeId: widget.exchangeId,
+        revieweeId: otherUserId,
+        rating: rating,
+        comment: comment,
+      );
+      
+      UiUtils.hideDialog(context);
+      await _loadExchange();
+      UiUtils.showToastMessage('Review submitted!', Colors.green);
+    } catch (e) {
+      UiUtils.hideDialog(context);
+      UiUtils.showToastMessage('Failed to submit review', Colors.red);
+    }
   }
 }
