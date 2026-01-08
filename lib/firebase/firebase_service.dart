@@ -1303,6 +1303,7 @@ static Future<void> _autoCancelPendingExchanges(
     required double longitude,
     required double radiusKm,
     ItemCategory? category,
+    List<ItemCondition>? conditions,
   }) async {
     try {
       print('Searching items within ${radiusKm}km of ($latitude, $longitude)');
@@ -1315,6 +1316,11 @@ static Future<void> _autoCancelPendingExchanges(
       // Add category filter if specified
       if (category != null) {
         query = query.where('category', isEqualTo: category.index);
+      }
+
+      // Add condition filter if specified
+      if (conditions != null && conditions.isNotEmpty) {
+        query = query.where('condition', whereIn: conditions.map((e) => e.index).toList());
       }
 
       final snapshot = await query.get();
@@ -1353,6 +1359,7 @@ static Future<void> _autoCancelPendingExchanges(
   static Future<List<ItemModel>> getItemsNearMe({
     required double radiusKm,
     ItemCategory? category,
+    List<ItemCondition>? conditions,
   }) async {
     try {
       // Get current position
@@ -1370,6 +1377,7 @@ static Future<void> _autoCancelPendingExchanges(
         longitude: position.longitude,
         radiusKm: radiusKm,
         category: category,
+        conditions: conditions,
       );
     } catch (e) {
       print('Error getting items near me: $e');

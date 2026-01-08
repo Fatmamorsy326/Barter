@@ -24,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   ItemCategory? _selectedCategory;
+  Set<ItemCondition> _selectedConditions = {};
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -367,6 +368,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           }
                         },
                       ),
+                    ],
+                  ),
+                ),
+
+                Divider(height: 1, color: ColorsManager.dividerFor(context)),
+
+                // Condition Filter
+                Padding(
+                  padding: REdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'CONDITION',
+                        style: TextStyle(
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w700,
+                          color: ColorsManager.textSecondaryFor(context),
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      SizedBox(height: 12.h),
+
+                      // Any Condition
+                      _buildDrawerItem(
+                        icon: Icons.filter_alt_off_rounded,
+                        title: 'Any Condition',
+                        subtitle: 'Show all items',
+                        isSelected: _selectedConditions.isEmpty,
+                        onTap: () {
+                          setState(() => _selectedConditions.clear());
+                          // Do not close drawer for multi-select
+                        },
+                      ),
+
+                      ...ItemCondition.values.map((condition) {
+                        final isSelected = _selectedConditions.contains(condition);
+                        return _buildDrawerItem(
+                          icon: isSelected ? Icons.check_circle : Icons.circle_outlined,
+                          title: condition.displayName,
+                          subtitle: 'Items in ${condition.displayName} state',
+                          isSelected: isSelected,
+                          trailing: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: condition.color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedConditions.remove(condition);
+                              } else {
+                                _selectedConditions.add(condition);
+                              }
+                            });
+                            // Do not close drawer for multi-select
+                          },
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -765,12 +828,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Key is used to force rebuild when distance changes
     if (_showNearbyOnly && _currentPosition != null) {
       return FutureBuilder<List<ItemModel>>(
-        key: ValueKey('nearby_$_radiusKm$_refreshKey'), // This forces rebuild
+        key: ValueKey('nearby_$_radiusKm$_refreshKey$_selectedConditions'), // This forces rebuild
         future: FirebaseService.getItemsNearLocation(
           latitude: _currentPosition!.latitude,
           longitude: _currentPosition!.longitude,
           radiusKm: _radiusKm,
           category: _selectedCategory,
+          conditions: _selectedConditions.toList(),
         ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1031,7 +1095,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
       final matchesCategory =
           _selectedCategory == null || item.category == _selectedCategory;
-      return matchesSearch && matchesCategory;
+      final matchesCondition =
+          _selectedConditions.isEmpty || _selectedConditions.contains(item.condition);
+      return matchesSearch && matchesCategory && matchesCondition;
     }).toList();
   }
 
