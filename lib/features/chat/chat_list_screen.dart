@@ -4,6 +4,7 @@ import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'package:barter/model/chat_model.dart';
 import 'package:barter/model/user_model.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -85,7 +86,7 @@ class ChatListScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Icon(
-                  Icons.chat_bubble_rounded,
+                  CupertinoIcons.chat_bubble_fill,
                   color: Colors.white,
                   size: 20.sp,
                 ),
@@ -134,7 +135,7 @@ class ChatListScreen extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.chat_bubble_outline_rounded,
+              CupertinoIcons.chat_bubble,
               size: 56.sp,
               color: ColorsManager.purpleFor(context),
             ),

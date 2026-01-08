@@ -4,6 +4,7 @@ import 'package:barter/core/routes_manager/routes.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:barter/model/exchange_model.dart';
 import 'package:barter/model/notification_model.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
@@ -40,7 +41,7 @@ class NotificationsScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.notifications_off_outlined,
+                    CupertinoIcons.bell_fill,
                     size: 64.sp,
                     color: ColorsManager.textSecondaryFor(context),
                   ),

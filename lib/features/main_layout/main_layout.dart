@@ -8,6 +8,7 @@ import 'package:barter/features/chat/chat_list_screen.dart';
 import 'package:barter/features/home/home_screen.dart';
 import 'package:barter/features/my_listing/my_listing_screen.dart';
 import 'package:barter/l10n/app_localizations.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -87,8 +88,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             children: [
               _buildNavItem(
                 index: 0,
-                icon: Icons.home_rounded,
-                outlinedIcon: Icons.home_outlined,
+                icon: CupertinoIcons.house_fill,
+                outlinedIcon: CupertinoIcons.house,
                 label: AppLocalizations.of(context)!.home,
               ),
               // Chat item with UnreadMessagesBadge
@@ -103,8 +104,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               ),
               _buildNavItem(
                 index: 3,
-                icon: Icons.person_rounded,
-                outlinedIcon: Icons.person_outline_rounded,
+                icon: CupertinoIcons.person_fill,
+                outlinedIcon: CupertinoIcons.person,
                 label: AppLocalizations.of(context)!.account,
               ),
             ],
@@ -142,7 +143,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           children: [
             UnreadMessagesBadge(
               child: Icon(
-                isSelected ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
+                isSelected ? CupertinoIcons.chat_bubble_fill : CupertinoIcons.chat_bubble,
                 color: isSelected ? Colors.white : ColorsManager.textSecondaryFor(context),
                 size: 22.sp,
               ),
@@ -256,7 +257,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             ],
           ),
           child: Icon(
-            Icons.add_rounded,
+            CupertinoIcons.add,
             color: Colors.white,
             size: 28.sp,
           ),
